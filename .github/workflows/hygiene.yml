@@ -1,0 +1,16 @@
+# This board is the first caller of the check it holds.
+#
+# The local path form resolves against THIS commit rather than against a tag or
+# a branch, so a pull request here is judged by the version it is proposing and
+# not by the one already on the mainline. That is what makes this board its own
+# proof: a change that breaks the check fails its own pull request.
+name: Hygiene
+
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  hygiene:
+    uses: ./.github/workflows/pr-hygiene.yml
