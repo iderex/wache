@@ -1,0 +1,22 @@
+# This board is the first caller of the check it holds.
+#
+# The local path form resolves against THIS commit rather than against a tag or
+# a branch, so a pull request here is judged by the version it is proposing and
+# not by the one already on the mainline. That is what makes this board its own
+# proof: a change that breaks the check fails its own pull request.
+name: Hygiene
+
+on:
+  pull_request:
+
+# THE CALLER HAS TO GRANT WHAT THE CALLED WORKFLOW ASKS FOR. This said
+# `permissions: {}` and the run ended in startup_failure before a single job
+# existed, because pr-hygiene.yml asks for `contents: read` to check the tree
+# out and a called workflow cannot hold more than its caller. The failure
+# carries no message on the API, so it is written down here instead.
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    uses: ./.github/workflows/pr-hygiene.yml
