@@ -1,0 +1,160 @@
+# What a pull request owes - written ONCE, and the boards call it.
+#
+# WHY THIS FILE EXISTS (iderex/operations#1556). On 22.08. nineteen boards
+# carried nineteen implementations of the same rule, in four languages, no two
+# alike. What they enforce is three or four rules; what differs is the wording -
+# fourteen boards want an issue named and say so twenty-eight different ways -
+# and four points of contention nobody had ever decided once. A two-line change
+# across thirty-seven boards therefore took six attempts.
+#
+# THE FOUR ANSWERS LIVE IN operations store/spec/pull-request-hygiene.md and are
+# applied here, not re-argued:
+#
+#   the number goes in the commit subject line
+#   it goes in square brackets, [#181]
+#   Closes #N goes on a line of its own
+#   a mention on another board counts, owner/repo#N
+#
+# THE FIXTURES RUN BEFORE THE JUDGEMENT, in the shape iderex/bremsweg found for
+# its own version: a check that has never refused anything is a green line with
+# nothing behind it. Every rule has a line that bites and a line that passes.
+name: PR hygiene
+
+on:
+  workflow_call:
+    inputs:
+      subject_names_issue:
+        description: 'Every non-merge commit names an issue in its subject'
+        type: boolean
+        default: true
+        required: false
+
+permissions: {}
+
+concurrency:
+  group: pr-hygiene-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    name: Deterministic PR hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Judge the fixtures, then the change
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SUBJECT_RULE: ${{ inputs.subject_names_issue }}
+        run: |
+          set -euo pipefail
+
+          names_issue() {
+            [[ "$1" =~ \[#[0-9]+\] ]] && return 0
+            [[ "$1" =~ (^|[^A-Za-z0-9_/-])[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[0-9]+ ]] && return 0
+            return 1
+          }
+
+          refusals() {
+            local title=$1 body=$2 flattened
+            local -a words
+
+            if [ -z "${body//[[:space:]]/}" ]; then
+              echo "the body is empty"
+            fi
+
+            if printf '%s' "$body" | grep -qiE '(closes|fixes|resolves) +#[0-9]+' \
+               && ! printf '%s' "$body" | grep -qE '^(Closes|Fixes|Resolves) #[0-9]+[.]?$'; then
+              echo "a closing keyword is in the body and not on a line of its own"
+            fi
+
+            read -r -a words <<< "${title,,}"
+            flattened="${words[*]}"
+            case "$flattened" in
+              "" | wip | "wip "* | "wip:"* | "[wip]"* | update | updates | fix \
+              | fixes | change | changes | patch | test | tests | untitled \
+              | "no title" | title | "new pull request" | "my changes")
+                echo "the title is a placeholder"
+                ;;
+            esac
+          }
+
+          self_test=0
+          must_refuse() {
+            local name=$1 title=$2 body=$3 wanted=$4 got
+            got=$(refusals "$title" "$body")
+            if [[ $got == *"$wanted"* ]]; then
+              echo "fixture ok     $name"
+            else
+              echo "FIXTURE FAILED $name"
+              self_test=1
+            fi
+          }
+          must_pass() {
+            local name=$1 title=$2 body=$3 got
+            got=$(refusals "$title" "$body")
+            if [ -z "$got" ]; then
+              echo "fixture ok     $name"
+            else
+              echo "FIXTURE FAILED $name: got $got"
+              self_test=1
+            fi
+          }
+          must_name() {
+            if names_issue "$2"; then echo "fixture ok     $1"; else echo "FIXTURE FAILED $1"; self_test=1; fi
+          }
+          must_not_name() {
+            if names_issue "$2"; then echo "FIXTURE FAILED $1"; self_test=1; else echo "fixture ok     $1"; fi
+          }
+
+          must_refuse   "an empty body is refused"        "A real title [#7]" "   "        "the body is empty"
+          must_pass     "one line of body is enough"      "A real title [#7]" "Closes #7"
+          must_refuse   "a placeholder title is refused"  "wip"               "Closes #7"  "the title is a placeholder"
+          must_refuse   "a closing keyword mid-paragraph" "A real title [#7]" "Prose and Closes #7 inside it." "a closing keyword is in the body"
+          must_name     "square brackets count"           "A title [#181]"
+          must_name     "another board counts"            "A title, refs iderex/operations#1552"
+          must_not_name "round brackets do not count"     "A title (#181)"
+          must_not_name "a bare number does not count"    "A title #181"
+          must_not_name "a colour value is not a mention" "Set the accent to #181818"
+
+          if [ "$self_test" != "0" ]; then
+            echo "::error::the fixtures failed, so this run judges nothing"
+            exit 1
+          fi
+
+          failed=0
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            echo "::error::$line"
+            failed=1
+          done < <(refusals "${PR_TITLE:-}" "${PR_BODY:-}")
+
+          if [ "$SUBJECT_RULE" = "true" ]; then
+            if ! base=$(git merge-base "$BASE_SHA" "$HEAD_SHA" 2>/dev/null); then
+              echo "::error::the merge base is not in this clone, so no range can be read"
+              exit 1
+            fi
+            while IFS= read -r sha; do
+              [ -n "$sha" ] || continue
+              subject=$(git log -1 --format=%s "$sha")
+              if ! names_issue "$subject"; then
+                echo "::error::${sha:0:9} names no issue in its subject. Put it in square brackets, or name another board as owner/repo#N."
+                failed=1
+              fi
+            done < <(git rev-list --no-merges "$base..$HEAD_SHA")
+          else
+            echo "the subject rule is off for this repository, so no commit subject was read"
+          fi
+
+          [ "$failed" = "0" ] || exit 1
+          echo "the body, the title and every commit subject carry what they owe"
