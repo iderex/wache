@@ -9,7 +9,13 @@ name: Hygiene
 on:
   pull_request:
 
-permissions: {}
+# THE CALLER HAS TO GRANT WHAT THE CALLED WORKFLOW ASKS FOR. This said
+# `permissions: {}` and the run ended in startup_failure before a single job
+# existed, because pr-hygiene.yml asks for `contents: read` to check the tree
+# out and a called workflow cannot hold more than its caller. The failure
+# carries no message on the API, so it is written down here instead.
+permissions:
+  contents: read
 
 jobs:
   hygiene:
