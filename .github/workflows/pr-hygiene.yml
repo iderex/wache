@@ -31,8 +31,17 @@ on:
 
 permissions: {}
 
+# THE GROUP CARRIES THIS WORKFLOW'S OWN NAME, not the bare pattern a calling
+# board's local guard is likely to use. This file runs on workflow_call, so its
+# concurrency group is applied to the CALLER's run - and with the old group
+# `pr-hygiene-<PR number>` plus cancel-in-progress, the shared run cancelled
+# the calling board's own pr-hygiene run before it executed a step, on every
+# push (issue #4; measured on sternwarte#105, schallweg#189, spurenarchiv#145,
+# and live on bremsweg since its #143 merged). A cancelled local guard blocks
+# nothing where no status check is required, so the board's own rules silently
+# stopped being judged while looking present.
 concurrency:
-  group: pr-hygiene-${{ github.event.pull_request.number }}
+  group: wache-pr-hygiene-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
