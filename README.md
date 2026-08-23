@@ -16,6 +16,17 @@ and needed six attempts, because every board refused for a different reason.
 This repository holds the checks once. A board calls them instead of keeping a
 copy, so a fix lands in one place and reaches every caller.
 
+## What is here
+
+| Check | What it refuses |
+|---|---|
+| `pr-hygiene.yml` | an empty body, a placeholder title, a closing keyword inside a paragraph, a commit subject naming no issue |
+| `unicode-guard.yml` | Trojan Source: bidirectional overrides, isolates and marks, and zero-width characters in the tracked tree |
+
+Both run fixtures before they judge anything. If a fixture disagrees with the
+rule it is meant to prove, the run fails and judges nothing, rather than passing
+your change on a check that had quietly stopped working.
+
 ## Calling a check
 
 ```yaml
@@ -38,6 +49,52 @@ jobs:
 Switching it off is a statement that the board does not meet the rule yet. It
 is better than not calling the check at all, which is a statement about
 nothing.
+
+The unicode guard is called the same way, and needs its own triggers because it
+reads the tree rather than the pull request:
+
+```yaml
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  unicode:
+    uses: iderex/wache/.github/workflows/unicode-guard.yml@<hash>  # v1.1.0
+```
+
+Every branch, not only `main`. A release branch is a code line too, and the
+scan is a cheap read-only grep.
+
+## Pin by hash, not by branch
+
+Callers pin by commit hash with the version in a comment beside it:
+
+```yaml
+uses: iderex/wache/.github/workflows/pr-hygiene.yml@9b311243c2d0d0ced7feb957a20bc178acce6a5d # v1.0.0
+```
+
+`@main` would let this repository change what executes on every board that calls
+it, without anybody reviewing the change. Several boards run an action-pin guard
+that refuses a moving reference outright, and they are right to.
+
+The cost is that a fix here reaches a board only when that board bumps one line.
+That is the trade: one reviewable line per board, instead of one implementation
+per board that nobody keeps in step. The measurement behind that claim is on
+`iderex/operations#1556`: thirty-seven boards carried the unicode guard as
+twenty-one distinct files, and thirty-two of them sat four patch versions behind
+on `codeql-action` while one board was current.
+
+## Versions
+
+`v1.0.0` was the hygiene check alone. `v1.1.0` added the unicode guard and
+changed nothing in the hygiene check, so a caller that only wants that one has
+no reason to move.
 
 ## What the hygiene check asks for
 
