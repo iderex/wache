@@ -1,0 +1,28 @@
+# This board runs the guards it holds, against itself.
+#
+# The local path form resolves against THIS commit, so a change to a guard is
+# judged by the version it proposes rather than by the one already on the
+# mainline. A change that breaks a guard fails its own pull request.
+#
+# THE UNICODE GUARD HAS A REASON TO RUN HERE BEYOND SELF-RESPECT. Its fixtures
+# name the characters it forbids, and if they were written as characters rather
+# than as escapes this file would refuse its own repository. Running it here is
+# what would catch that.
+name: Guards
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unicode:
+    uses: ./.github/workflows/unicode-guard.yml
