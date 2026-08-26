@@ -30,10 +30,25 @@ your change on a check that had quietly stopped working.
 ## Calling a check
 
 ```yaml
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
 jobs:
   hygiene:
     uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
 ```
+
+DECLARE THE TYPES. The default set for `pull_request` is `opened`,
+`synchronize` and `reopened`, and this check judges the body and the title -
+both of which are editable after the run that judged them. Without `edited` a
+body is read once and never again, so a green status can stand over bytes that
+have since been replaced. It is not a theoretical case: it happened on this
+board's own pull request #21 before the trigger was fixed.
+
+The trigger has to be declared by the caller. `pr-hygiene.yml` runs on
+`workflow_call` and carries no events of its own, so no change here can close
+that gap for a board that leaves the types out.
 
 A board whose commit subjects do not carry an issue number yet can switch that
 one rule off and keep the rest:

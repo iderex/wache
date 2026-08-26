@@ -6,8 +6,20 @@
 # proof: a change that breaks the check fails its own pull request.
 name: Hygiene
 
+# THE TYPES ARE DECLARED BECAUSE THE DEFAULT SET DOES NOT INCLUDE `edited`
+# (issue #22). What this check judges is the pull request BODY and TITLE, and
+# both are editable after the run that judged them. With the default
+# `opened, synchronize, reopened` a body was read once and never again, so a
+# green status could stand over bytes that had since been replaced - measured
+# on pull request #21, where a body edit produced no second run at all.
+#
+# `edited` fires on a title, body or base-branch change, which is exactly the
+# set this check reads. The trigger belongs to the caller: `pr-hygiene.yml`
+# runs on `workflow_call` and declares no events of its own, so this gap could
+# only ever be closed here and in the calling examples of the README.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
 # THE CALLER HAS TO GRANT WHAT THE CALLED WORKFLOW ASKS FOR. This said
 # `permissions: {}` and the run ended in startup_failure before a single job
