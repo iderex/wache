@@ -130,14 +130,19 @@ Beyond that it refuses an empty pull request body and a placeholder title.
 ## The fixtures run before the judgement
 
 A check that has never refused anything is a green line with nothing behind
-it. Before this workflow judges your pull request it judges nine fixtures, and
+it. Before this workflow judges your pull request it judges its fixtures, and
 every rule has one line that must be refused and one that must pass. If a
 fixture disagrees with the rule, the run fails and judges nothing, rather than
-passing your change on a check that had quietly stopped working.
+passing your change on a check that had quietly stopped working. How many
+there are is printed by the run, one line per fixture; a count written here
+would drift against the file that decides it, the way the version list above
+already did.
 
 The near misses are the interesting half. `#181818` is a colour value and not
 an issue mention. `(#181)` is a round bracket and does not count. A bare `#181`
-does not count either, because the decision was square brackets.
+does not count either, because the decision was square brackets. A closing
+keyword is judged line by line, so `Closes #7` standing further down the body
+does not excuse `closes #8` written into a paragraph above it.
 
 I took that shape from the version [bremsweg](https://github.com/iderex/bremsweg)
 had already found for itself.
