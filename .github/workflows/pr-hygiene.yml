@@ -82,10 +82,20 @@ jobs:
               echo "the body is empty"
             fi
 
-            if printf '%s' "$body" | grep -qiE '(closes|fixes|resolves) +#[0-9]+' \
-               && ! printf '%s' "$body" | grep -qE '^(Closes|Fixes|Resolves) #[0-9]+[.]?$'; then
-              echo "a closing keyword is in the body and not on a line of its own"
-            fi
+            # EVERY LINE CARRYING A CLOSING KEYWORD IS JUDGED (issue #16). This
+            # asked two questions about the body as a whole - is a closing
+            # keyword anywhere in it, and is some line somewhere well-formed -
+            # so one proper line exempted every improper one. A closure sitting
+            # inside a paragraph passed whenever a proper line stood elsewhere,
+            # and GitHub closed the paragraph's issue all the same.
+            local line
+            while IFS= read -r line; do
+              if grep -qiE '(closes|fixes|resolves) +#[0-9]+' <<< "$line" \
+                 && ! grep -qE '^(Closes|Fixes|Resolves) #[0-9]+[.]?$' <<< "$line"; then
+                echo "a closing keyword must be the whole of its line and capitalised, as in Closes #7"
+                break
+              fi
+            done <<< "$body"
 
             read -r -a words <<< "${title,,}"
             flattened="${words[*]}"
@@ -129,7 +139,15 @@ jobs:
           must_refuse   "an empty body is refused"        "A real title [#7]" "   "        "the body is empty"
           must_pass     "one line of body is enough"      "A real title [#7]" "Closes #7"
           must_refuse   "a placeholder title is refused"  "wip"               "Closes #7"  "the title is a placeholder"
-          must_refuse   "a closing keyword mid-paragraph" "A real title [#7]" "Prose and Closes #7 inside it." "a closing keyword is in the body"
+          must_refuse   "a closing keyword mid-paragraph" "A real title [#7]" "Prose and Closes #7 inside it." "a closing keyword must be the whole of its line"
+          must_refuse   "one good line excuses no bad one" "A real title [#7]" \
+                        $'I explain here that this closes #8 by accident.\nCloses #7' \
+                        "a closing keyword must be the whole of its line"
+          must_refuse   "a lowercase closing keyword"     "A real title [#7]" "closes #7" "and capitalised"
+          must_pass     "two closing lines, both proper"  "A real title [#7]" $'Closes #7\nCloses #8'
+          must_refuse   "two issues on one closing line"  "A real title [#7]" \
+                        $'Closes #7\nCloses #8 and #9' \
+                        "a closing keyword must be the whole of its line"
           must_name     "square brackets count"           "A title [#181]"
           must_name     "another board counts"            "A title, refs iderex/operations#1552"
           must_not_name "round brackets do not count"     "A title (#181)"
