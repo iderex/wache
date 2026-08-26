@@ -32,7 +32,7 @@ your change on a check that had quietly stopped working.
 ```yaml
 jobs:
   hygiene:
-    uses: iderex/wache/.github/workflows/pr-hygiene.yml@main
+    uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
 ```
 
 A board whose commit subjects do not carry an issue number yet can switch that
@@ -41,7 +41,7 @@ one rule off and keep the rest:
 ```yaml
 jobs:
   hygiene:
-    uses: iderex/wache/.github/workflows/pr-hygiene.yml@main
+    uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
     with:
       subject_names_issue: false
 ```
