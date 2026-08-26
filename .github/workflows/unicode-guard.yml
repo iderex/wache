@@ -12,7 +12,7 @@
 # edits that measurably did not happen: 32 boards sat on codeql-action v4.37.3
 # while one board was four patch versions ahead.
 #
-# THIS FASSUNG TAKES THE BEST OF THE FOUR, NOT THE MOST COMMON.
+# THIS VERSION TAKES THE BEST OF THE FOUR, NOT THE MOST COMMON.
 #
 #   BRANCHES. The majority scans every branch and `kontor` scanned only `main`.
 #   Every branch is right: a release branch is a code line too, and the guard is
@@ -69,7 +69,7 @@ jobs:
 
           fixtures=$(mktemp -d)
           trap 'rm -rf "$fixtures"' EXIT
-          selbst=0
+          self_test=0
 
           # THE FIXTURES CARRY ESCAPES AND NOT THE CHARACTERS THEMSELVES. A guard
           # whose own file contains what it forbids cannot live in a tree that
@@ -88,41 +88,41 @@ jobs:
             printf '%s' "$1" | python3 -c 'import sys;sys.stdout.write(sys.stdin.read().encode().decode("unicode_escape"))'
           }
 
-          faengt() { # name, backslash-u escape of the character
+          must_catch() { # name, backslash-u escape of the character
             decode "$2" > "$fixtures/f"
             if grep -qIP "$pattern" "$fixtures/f"; then
               echo "fixture ok     $1 is caught"
             else
               echo "FIXTURE FAILED $1 is not caught, so the pattern no longer refuses what it names"
-              selbst=1
+              self_test=1
             fi
           }
-          laesst_durch() { # name, backslash-u escape of the text
+          must_pass() { # name, backslash-u escape of the text
             decode "$2" > "$fixtures/f"
             if grep -qIP "$pattern" "$fixtures/f"; then
               echo "FIXTURE FAILED $1 is refused, and it is not an attack"
-              selbst=1
+              self_test=1
             else
               echo "fixture ok     $1 passes"
             fi
           }
 
-          faengt 'U+202E right-to-left override'    'let x = 1 \u202E // reversed'
-          faengt 'U+202A left-to-right embedding'   'a \u202A b'
-          faengt 'U+2066 left-to-right isolate'     'a \u2066 b'
-          faengt 'U+2069 pop directional isolate'   'a \u2069 b'
-          faengt 'U+200E left-to-right mark'        'a \u200E b'
-          faengt 'U+061C arabic letter mark'        'a \u061C b'
-          faengt 'U+200B zero width space'          'a \u200B b'
-          faengt 'U+200D zero width joiner'         'a \u200D b'
-          faengt 'U+2060 word joiner'               'a \u2060 b'
+          must_catch 'U+202E right-to-left override'    'let x = 1 \u202E // reversed'
+          must_catch 'U+202A left-to-right embedding'   'a \u202A b'
+          must_catch 'U+2066 left-to-right isolate'     'a \u2066 b'
+          must_catch 'U+2069 pop directional isolate'   'a \u2069 b'
+          must_catch 'U+200E left-to-right mark'        'a \u200E b'
+          must_catch 'U+061C arabic letter mark'        'a \u061C b'
+          must_catch 'U+200B zero width space'          'a \u200B b'
+          must_catch 'U+200D zero width joiner'         'a \u200D b'
+          must_catch 'U+2060 word joiner'               'a \u2060 b'
 
-          laesst_durch 'an em dash'        'a sentence \u2014 with an em dash'
-          laesst_durch 'an accent'         'Nils Lehnen, M\u00FCnchen, caf\u00E9 cr\u00E8me'
-          laesst_durch 'a byte order mark' '\uFEFFconst x = 1'
-          laesst_durch 'ordinary source'   'func main() { fmt.Println("hello") }'
+          must_pass 'an em dash'        'a sentence \u2014 with an em dash'
+          must_pass 'an accent'         'Nils Lehnen, M\u00FCnchen, caf\u00E9 cr\u00E8me'
+          must_pass 'a byte order mark' '\uFEFFconst x = 1'
+          must_pass 'ordinary source'   'func main() { fmt.Println("hello") }'
 
-          if [ "$selbst" != "0" ]; then
+          if [ "$self_test" != "0" ]; then
             echo "::error::the fixtures failed, so this run judges nothing about the tree"
             exit 1
           fi
