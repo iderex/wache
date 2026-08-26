@@ -76,8 +76,20 @@ jobs:
           # runs the guard: this repository would refuse itself. The escape is
           # decoded at runtime, so the bytes on disk stay ASCII and the fixture
           # still tests the real codepoint.
+          #
+          # THE BENIGN NEIGHBOURS GO THROUGH THE SAME DECODER, AND THEY DID NOT.
+          # `an em dash` was written with U+002D and `an accent` with `Muenchen,
+          # cafe creme`, so each wrote pure ASCII and then asked whether a pattern
+          # for bidirectional and zero-width codepoints matched it. That is true of
+          # every ASCII string ever written, so neither fixture could tell this
+          # pattern from one widened to refuse dashes and accented letters: both
+          # reported green against such a pattern.
+          decode() { # backslash-u escapes to the characters they name
+            printf '%s' "$1" | python3 -c 'import sys;sys.stdout.write(sys.stdin.read().encode().decode("unicode_escape"))'
+          }
+
           faengt() { # name, backslash-u escape of the character
-            printf '%s' "$2" | python3 -c 'import sys;sys.stdout.write(sys.stdin.read().encode().decode("unicode_escape"))' > "$fixtures/f"
+            decode "$2" > "$fixtures/f"
             if grep -qIP "$pattern" "$fixtures/f"; then
               echo "fixture ok     $1 is caught"
             else
@@ -85,8 +97,8 @@ jobs:
               selbst=1
             fi
           }
-          laesst_durch() { # name, literal text
-            printf '%s\n' "$2" > "$fixtures/f"
+          laesst_durch() { # name, backslash-u escape of the text
+            decode "$2" > "$fixtures/f"
             if grep -qIP "$pattern" "$fixtures/f"; then
               echo "FIXTURE FAILED $1 is refused, and it is not an attack"
               selbst=1
@@ -105,9 +117,9 @@ jobs:
           faengt 'U+200D zero width joiner'         'a \u200D b'
           faengt 'U+2060 word joiner'               'a \u2060 b'
 
-          laesst_durch 'an em dash'        'a sentence - with an em dash'
-          laesst_durch 'an accent'         'Nils Lehnen, Muenchen, cafe creme'
-          laesst_durch 'a byte order mark' "$(printf '\xef\xbb\xbfconst x = 1')"
+          laesst_durch 'an em dash'        'a sentence \u2014 with an em dash'
+          laesst_durch 'an accent'         'Nils Lehnen, M\u00FCnchen, caf\u00E9 cr\u00E8me'
+          laesst_durch 'a byte order mark' '\uFEFFconst x = 1'
           laesst_durch 'ordinary source'   'func main() { fmt.Println("hello") }'
 
           if [ "$selbst" != "0" ]; then
