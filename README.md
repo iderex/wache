@@ -27,6 +27,11 @@ Both run fixtures before they judge anything. If a fixture disagrees with the
 rule it is meant to prove, the run fails and judges nothing, rather than passing
 your change on a check that had quietly stopped working.
 
+`docs/standardisation-survey.md` is the reading behind what comes here next: what
+the boards hold more than once, how far the copies have drifted, and the shapes
+standardisation could take. It ends in a decision request rather than in an
+implementation.
+
 ## Calling a check
 
 ```yaml
