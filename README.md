@@ -65,7 +65,7 @@ permissions:
 
 jobs:
   unicode:
-    uses: iderex/wache/.github/workflows/unicode-guard.yml@<hash>  # v1.1.0
+    uses: iderex/wache/.github/workflows/unicode-guard.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
 ```
 
 Every branch, not only `main`. A release branch is a code line too, and the
@@ -76,7 +76,7 @@ scan is a cheap read-only grep.
 Callers pin by commit hash with the version in a comment beside it:
 
 ```yaml
-uses: iderex/wache/.github/workflows/pr-hygiene.yml@9b311243c2d0d0ced7feb957a20bc178acce6a5d # v1.0.0
+uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
 ```
 
 `@main` would let this repository change what executes on every board that calls
@@ -93,8 +93,27 @@ on `codeql-action` while one board was current.
 ## Versions
 
 `v1.0.0` was the hygiene check alone. `v1.1.0` added the unicode guard and
-changed nothing in the hygiene check, so a caller that only wants that one has
-no reason to move.
+changed nothing in the hygiene check. `v1.2.0` changed only the hygiene check's
+concurrency group, and it is the one release a caller cannot skip.
+
+Below `v1.2.0` the shared workflow's group is the bare `pr-hygiene-<PR number>`,
+and a called workflow's concurrency applies to the CALLING board's run. With
+`cancel-in-progress` the shared run therefore cancelled that board's own
+pr-hygiene run before it executed a step, on every push. A cancelled guard
+blocks nothing where no status check is required, so the board's own rules stop
+being judged while still looking present.
+
+The tags decide this and the paragraph above does not:
+
+```sh
+git ls-remote --tags https://github.com/iderex/wache | grep -v '\^{}'
+git rev-list -n1 v1.2.0
+```
+
+Read them before pinning. A version list kept by hand drifts against the tags,
+and this section did: it stopped at `v1.1.0` while the example above it named
+the hash of `v1.0.0`, which is the release the concurrency repair is missing
+from.
 
 ## What the hygiene check asks for
 
