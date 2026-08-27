@@ -1,0 +1,23 @@
+# A probe, and it is removed before this pull request is merged.
+#
+# The DCO gate landed on this board without ever executing on a runner: nothing
+# here calls it, and the evidence in #34 is a local run of the script extracted
+# from the file. The fixtures run inside every real run, so a board that adds
+# the caller is the first to find out whether they pass there. This asks that
+# question on this board instead, in both directions, and takes the answer into
+# the README.
+name: probe-25-dco
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    uses: iderex/wache/.github/workflows/dco.yml@30fee603352e802464f87d65a5fa1e44a351067e
+    with:
+      references: |
+        README.md
