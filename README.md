@@ -91,13 +91,22 @@ on:
 
 jobs:
   hygiene:
-    uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
+    uses: iderex/wache/.github/workflows/pr-hygiene.yml@c96bdee7eefddee8120ae4be58e6f3d4eaa1f157
     with:
       subject_exempt_authors: |
         dependabot[bot]@users.noreply.github.com
       outside_contributions_exempt: true
       message_is_ascii: true
 ```
+
+NO RELEASE CARRIES THESE THREE INPUTS YET, so the pin above is the commit that
+added them rather than a tag, and no version comment is invented beside it.
+`v1.2.0` is the newest tag; it declares `subject_names_issue` and nothing else,
+which is above the floor `#27` asks for and below what this example passes. A
+caller in that state does not quietly fall back to the defaults - the run
+reaches `startup_failure` with no job and no check run, so a board that deleted
+its own copy in the same change is left with neither gate. That was read on this
+board's pull request `#37` rather than assumed.
 
 `subject_exempt_authors` is the automation exemption three boards hold. Without
 it a board that deletes its copy starts refusing its own dependency-update pull
@@ -224,6 +233,17 @@ The tags decide this and the paragraph above does not:
 ```sh
 git ls-remote --tags https://github.com/iderex/wache | grep -v '\^{}'
 git rev-list -n1 v1.2.0
+```
+
+NO TAG CARRIES THE HYGIENE CHECK'S THREE MIGRATION INPUTS EITHER.
+`subject_exempt_authors`, `outside_contributions_exempt` and `message_is_ascii`
+landed after `v1.2.0` was cut, so a board carrying an answer across from its own
+copy pins the commit that added them rather than a version:
+
+```sh
+gh api "repos/iderex/wache/contents/.github/workflows/pr-hygiene.yml?ref=v1.2.0" --jq '.content' |
+  base64 -d | grep -cE '^      (subject_exempt_authors|outside_contributions_exempt|message_is_ascii):'
+0
 ```
 
 NO TAG CARRIES THE DCO GATE. `v1.2.0` is the newest tag and was cut before that
