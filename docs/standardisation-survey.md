@@ -102,7 +102,13 @@ and what the tail looks like. The cluster sizes come from
 awk -F'\t' -v F=<name> '$2==F{print $3}' inventory.tsv | sort | uniq -c | sort -rn
 ```
 
-### `dependabot.yml` - the cheapest one, and the one with the most agreement
+### `dependabot.yml` - THE 63-BOARD CLUSTER WAS THE COMMAND'S ERROR BODY
+
+CORRECTED 27 AUGUST 2026 BY RE-RUNNING IT. What stood here read 72 copies, none
+absent, 10 distinct contents and a largest identical cluster of 63, and took
+this as the cheapest candidate because 63 boards had already agreed without
+anybody writing it down. THE 63 ARE BOARDS THAT DO NOT CARRY THE FILE. This is
+the command that produced the figure:
 
 ```
 boards | while read -r r; do
@@ -111,14 +117,48 @@ boards | while read -r r; do
 done > dependabot.tsv
 ```
 
-72 boards, 72 copies, none absent, 10 distinct contents, and the largest cluster
-is 63. Nine boards each hold a file nobody else holds.
+`gh api` writes its error body to STDOUT rather than to stderr, and does not
+apply `--jq` to it. So `2>/dev/null` discards nothing, the command substitution
+captures the error JSON as the sha, and `|| echo absent` appends `absent` to the
+end of that string instead of replacing it. Every board missing the file lands
+the same long constant in the sha column, and `sort | uniq -c` counts them as
+one identical cluster. Run against one board that has the file and one that does
+not:
 
-This is the candidate to take first, and the reason is the shape of that
-distribution rather than its size. 63 boards have already agreed on the answer
-without anybody writing it down, so standardising costs a statement of what is
-already true, and the nine outliers are a readable list rather than a research
-project.
+    $ for r in iderex/retusche iderex/bremsweg; do
+        printf '%s\t%s\n' "$r" \
+          "$(gh api "repos/$r/contents/.github/dependabot.yml" --jq '.sha' 2>/dev/null || echo absent)"
+      done
+    iderex/retusche f9a5231933406b319fd657e8b1eabe6443f39437
+    iderex/bremsweg {"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/contents#get-repository-content","status":"404"}absent
+
+The reading again, on 27 August 2026 against the 73 boards the roster holds now,
+with the sha column validated as hexadecimal before anything is counted:
+
+    out=$(gh api "repos/$r/contents/.github/dependabot.yml" --jq '.sha' 2>/dev/null)
+    case "$out" in [0-9a-f][0-9a-f]*) printf '%s\t%s\n' "$r" "$out" ;;
+                                  *) printf '%s\tabsent\n' "$r" ;; esac
+
+    64 absent
+     9 present, 9 distinct contents, no two alike
+
+A second endpoint answering a different question agrees, and it is the one that
+separates a missing file from a repository the token cannot read: the listing of
+each board's `.github` directory. All 73 boards return a readable listing, and
+nine of them name `dependabot.yml`.
+
+    gh api "repos/$r/contents/.github" --jq '[.[].name] | join(",")'
+
+So this is not the candidate with the most agreement; it is the opposite shape.
+64 boards configure no dependency updater at all, and the nine that do wrote
+nine different files. `docs/dependabot-across-the-boards.md` reads those nine
+and says which part of them could be canonical at all.
+
+THE OTHER CANDIDATES DO NOT INHERIT THIS DEFECT, and that is measured rather
+than assumed. `inventory.tsv` is built by a command with no `||` fallback and no
+command substitution, so a 404 there lands one malformed line instead of a false
+cluster, and the workflow figures reproduce: `unicode-guard.yml` is 63 copies in
+34 distinct contents with a largest cluster of 28, exactly as printed below.
 
 ### `dco.yml` - the freshest copy, and the one #8 was opened about
 
@@ -357,8 +397,8 @@ A tool that pushes the canonical file into every board.
 ## The decision I am asking for
 
 1. Which shape, per candidate. It does not have to be one answer for all seven:
-   `dependabot.yml` at 63 agreeing copies and `zizmor.yml` at 19 are different
-   problems.
+   `dependabot.yml`, which 64 of 73 boards do not carry at all, and
+   `zizmor.yml` at 19 agreeing copies are different problems.
 2. Whether the sixteen duplicate `pr-hygiene.yml` files are removed now, ahead
    of any decision on the rest. I read that as the most expensive thing standing
    and the cheapest to end.
@@ -371,7 +411,9 @@ Filed on 26 August 2026, one per candidate, each standing alone with its own
 counts, its own evidence and its own done-when. None of them needs this document
 read first.
 
-- `#24` `dependabot.yml`: 72 copies, 10 contents, 63 agreeing. The cheapest.
+- `#24` `dependabot.yml`: nine boards carry one, no two alike, and 64 carry
+  none. Filed as the cheapest candidate on a count that did not survive being
+  re-run; the section above says what that count actually measured.
 - `#25` `dco.yml`: 60 copies, 30 contents, and a tail that is half drift and
   half declared deviation.
 - `#26` `zizmor.yml`: 62 copies, 44 contents. Filed as a reading rather than as
