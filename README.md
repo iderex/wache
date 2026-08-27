@@ -197,7 +197,11 @@ cannot say whether the workflow parses on the platform or whether the fixtures
 pass in the runner's shell. A caller was added to this board for the length of
 one pull request and removed again, and on `ubuntu-24.04` all eighteen fixtures
 pass and a range whose commits all carry a matching sign-off is reported as
-read. The run and its commands are in `#39`.
+read. The second push to that pull request carried a commit with no trailer, and
+the gate refused that commit by hash, named the exact trailer it wanted, and
+pointed at the one path the caller had declared - `README.md` and nothing the
+board does not hold, which is the whole reason `references` exists. Both runs
+and their commands are in `#39`.
 
 NOTHING ON THIS BOARD CALLS THE GATE, so that pull request is the whole of what
 has executed. A board adopting it is still the first to run it against its own
