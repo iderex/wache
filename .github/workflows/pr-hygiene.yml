@@ -28,6 +28,47 @@ on:
         type: boolean
         default: true
         required: false
+      # THE THREE BELOW ARE ANSWERS SIXTEEN BOARDS ALREADY HELD IN THEIR OWN
+      # COPY OF THIS CHECK, carried in so that deleting the copy does not delete
+      # the answer (issue #27). Reading those sixteen files found five answers
+      # this check had no form of, and three of them would have turned work that
+      # passes on those boards today into work that is refused the day the local
+      # file goes. EVERY DEFAULT HERE IS TODAY'S BEHAVIOUR, so no board that
+      # already calls this check moves when it lands; a board turns its answer
+      # on in the same diff that removes its copy, where a reader can see it.
+      subject_exempt_authors:
+        description: >-
+          Author addresses whose commits are not held to the subject rule, one
+          per line. Automation cannot name an issue it does not know about, and
+          three boards exempt it by an explicit allowlist of identities. Each
+          entry is matched exactly and against the `<id>+<entry>` form GitHub
+          mints, never as a `*[bot]@...` glob, so a human cannot self-exempt by
+          crafting a `[bot]`-shaped author address. Empty exempts nobody.
+        type: string
+        default: ''
+        required: false
+      outside_contributions_exempt:
+        description: >-
+          Waive the subject rule for a pull request from a fork or from an
+          author who is not an owner, member or collaborator. On a board that
+          takes outside changes, the alternative is refusing a new
+          contributor's first commit for a convention nobody has told them.
+          `subject_names_issue: false` is the only other lever and it turns the
+          rule off for everybody rather than for the case it was waived for.
+        type: boolean
+        default: false
+        required: false
+      message_is_ascii:
+        description: >-
+          Refuse a commit message carrying a byte outside printable US-ASCII,
+          tab and newline. Three boards judge their message bytes by an
+          allowlist rather than by a list of forbidden characters, and fail
+          closed when the scanner errors rather than reading an error as a
+          clean message. This is the commit message; the tree is the unicode
+          guard's subject and a different question.
+        type: boolean
+        default: false
+        required: false
 
 permissions: {}
 
@@ -65,6 +106,11 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           SUBJECT_RULE: ${{ inputs.subject_names_issue }}
+          EXEMPT_AUTHORS: ${{ inputs.subject_exempt_authors }}
+          OUTSIDE_EXEMPT: ${{ inputs.outside_contributions_exempt }}
+          ASCII_RULE: ${{ inputs.message_is_ascii }}
+          HEAD_IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
         run: |
           set -euo pipefail
 
@@ -72,6 +118,55 @@ jobs:
             [[ "$1" =~ \[#[0-9]+\] ]] && return 0
             [[ "$1" =~ (^|[^A-Za-z0-9_/-])[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[0-9]+ ]] && return 0
             return 1
+          }
+
+          # An entry matches the address itself or GitHub's `<id>+<entry>` form.
+          # The entry is expanded inside quotes in the pattern, so `[bot]` is
+          # five literal characters and not a bracket expression - which is the
+          # whole point of an allowlist here. A `*[bot]@...` glob would let a
+          # human exempt themselves by choosing an author address.
+          is_exempt_author() {
+            local address=$1 list=$2 entry
+            [ -n "$list" ] || return 1
+            while IFS= read -r entry; do
+              entry="${entry#"${entry%%[![:space:]]*}"}"
+              entry="${entry%"${entry##*[![:space:]]}"}"
+              [ -n "$entry" ] || continue
+              case "$address" in
+                "$entry" | *"+$entry") return 0 ;;
+              esac
+            done <<< "$list"
+            return 1
+          }
+
+          # A fork is an outside contribution whatever the association says, and
+          # so is an author the repository does not already carry. OWNER, MEMBER
+          # and COLLABORATOR are the three that mean somebody already has write
+          # access; everything else, CONTRIBUTOR and FIRST_TIME_CONTRIBUTOR
+          # included, is outside. An empty or unknown association is treated as
+          # outside rather than inside: the waiver only ever refuses less, so
+          # failing towards it costs nothing a board did not ask for.
+          is_outside_contribution() {
+            local fork=$1 association=$2
+            [ "$fork" = "true" ] && return 0
+            case "$association" in
+              OWNER | MEMBER | COLLABORATOR) return 1 ;;
+            esac
+            return 0
+          }
+
+          # The allowlist is printable US-ASCII plus tab and newline. `grep -c`
+          # rather than `grep -q` so the three exits stay separable: 0 means a
+          # byte outside the allowlist was found, 1 means clean, anything else
+          # is a scanner error and is refused rather than read as clean.
+          message_outside_ascii() {
+            local rc=0
+            printf '%s' "$1" | LC_ALL=C grep -qP '[^\x09\x0A\x20-\x7E]' || rc=$?
+            case "$rc" in
+              0) echo found ;;
+              1) echo clean ;;
+              *) echo "error $rc" ;;
+            esac
           }
 
           refusals() {
@@ -154,6 +249,55 @@ jobs:
           must_not_name "a bare number does not count"    "A title #181"
           must_not_name "a colour value is not a mention" "Set the accent to #181818"
 
+          must_exempt() {
+            if is_exempt_author "$2" "$3"; then echo "fixture ok     $1"; else echo "FIXTURE FAILED $1"; self_test=1; fi
+          }
+          must_not_exempt() {
+            if is_exempt_author "$2" "$3"; then echo "FIXTURE FAILED $1"; self_test=1; else echo "fixture ok     $1"; fi
+          }
+          must_be_outside() {
+            if is_outside_contribution "$2" "$3"; then echo "fixture ok     $1"; else echo "FIXTURE FAILED $1"; self_test=1; fi
+          }
+          must_be_inside() {
+            if is_outside_contribution "$2" "$3"; then echo "FIXTURE FAILED $1"; self_test=1; else echo "fixture ok     $1"; fi
+          }
+          must_scan() { # name, message, wanted verdict
+            local got
+            got=$(message_outside_ascii "$2")
+            if [ "$got" = "$3" ]; then
+              echo "fixture ok     $1"
+            else
+              echo "FIXTURE FAILED $1: wanted $3, got $got"
+              self_test=1
+            fi
+          }
+
+          bots=$(printf '%s\n%s\n' 'dependabot[bot]@users.noreply.github.com' 'renovate[bot]@users.noreply.github.com')
+          must_exempt     "a listed bot address"        'dependabot[bot]@users.noreply.github.com'          "$bots"
+          must_exempt     "the id+bot form"             '49699333+dependabot[bot]@users.noreply.github.com' "$bots"
+          must_exempt     "the second line of the list" 'renovate[bot]@users.noreply.github.com'            "$bots"
+          must_not_exempt "a bot-shaped human address"  'dependabot[bot]@example.org'                       "$bots"
+          must_not_exempt "a bot outside the list"      'github-actions[bot]@users.noreply.github.com'      "$bots"
+          must_not_exempt "an ordinary author"          'ada@example.org'                                   "$bots"
+          must_not_exempt "an empty list exempts nobody" 'dependabot[bot]@users.noreply.github.com'         ''
+
+          must_be_outside "a fork, whatever the association" 'true'  'COLLABORATOR'
+          must_be_outside "a first-time contributor"         'false' 'FIRST_TIME_CONTRIBUTOR'
+          must_be_outside "a plain contributor"              'false' 'CONTRIBUTOR'
+          must_be_outside "an association nobody sent"       'false' ''
+          must_be_inside  "the owner"                        'false' 'OWNER'
+          must_be_inside  "an organisation member"           'false' 'MEMBER'
+          must_be_inside  "a collaborator on the board"      'false' 'COLLABORATOR'
+
+          # THE BYTE IS BUILT AT RUNTIME AND NOT WRITTEN INTO THIS FILE. A
+          # fixture carrying the character itself would be a literal in a tree
+          # this board scans, and the escape decodes to the same two bytes while
+          # the file on disk stays ASCII.
+          latin1=$(printf 'Fix the Muenchen page, \303\244 [#7]')
+          must_scan "an ordinary subject is clean"   'Read what the boards hold [#24]' clean
+          must_scan "a tab and a newline are clean"  "$(printf 'A subject [#7]\n\n\tan indented line\n')" clean
+          must_scan "a two-byte character is found"  "$latin1" found
+
           if [ "$self_test" != "0" ]; then
             echo "::error::the fixtures failed, so this run judges nothing"
             exit 1
@@ -166,22 +310,61 @@ jobs:
             failed=1
           done < <(refusals "${PR_TITLE:-}" "${PR_BODY:-}")
 
-          if [ "$SUBJECT_RULE" = "true" ]; then
+          subject_rule="$SUBJECT_RULE"
+          if [ "$subject_rule" = "true" ] && [ "$OUTSIDE_EXEMPT" = "true" ] \
+             && is_outside_contribution "${HEAD_IS_FORK:-false}" "${AUTHOR_ASSOCIATION:-}"; then
+            echo "waive the subject rule: this is an outside contribution (fork=${HEAD_IS_FORK:-false}, association=${AUTHOR_ASSOCIATION:-none})"
+            subject_rule=false
+          fi
+
+          if [ "$subject_rule" = "true" ] || [ "$ASCII_RULE" = "true" ]; then
             if ! base=$(git merge-base "$BASE_SHA" "$HEAD_SHA" 2>/dev/null); then
               echo "::error::the merge base is not in this clone, so no range can be read"
               exit 1
             fi
             while IFS= read -r sha; do
               [ -n "$sha" ] || continue
+
+              if [ "$ASCII_RULE" = "true" ]; then
+                case "$(message_outside_ascii "$(git log -1 --format=%B "$sha")")" in
+                  found)
+                    echo "::error::${sha:0:9} carries a byte outside printable US-ASCII in its message."
+                    failed=1
+                    ;;
+                  clean) ;;
+                  *)
+                    # FAIL CLOSED. A scanner that could not read the message is
+                    # not a message that was read and found clean, and reporting
+                    # it as one is the failure this arm exists against.
+                    echo "::error::the message scanner errored on ${sha:0:9}, so nothing was read. Refusing rather than assuming it is clean."
+                    failed=1
+                    ;;
+                esac
+              fi
+
+              [ "$subject_rule" = "true" ] || continue
+
+              author_email=$(git log -1 --format=%ae "$sha")
+              if is_exempt_author "$author_email" "${EXEMPT_AUTHORS:-}"; then
+                echo "skip  ${sha:0:9} (automation: $author_email)"
+                continue
+              fi
               subject=$(git log -1 --format=%s "$sha")
               if ! names_issue "$subject"; then
                 echo "::error::${sha:0:9} names no issue in its subject. Put it in square brackets, or name another board as owner/repo#N."
                 failed=1
               fi
             done < <(git rev-list --no-merges "$base..$HEAD_SHA")
-          else
+          fi
+
+          if [ "$SUBJECT_RULE" != "true" ]; then
             echo "the subject rule is off for this repository, so no commit subject was read"
+          elif [ "$subject_rule" != "true" ]; then
+            echo "the subject rule is on for this repository and was waived for this pull request, so no commit subject was read"
+          fi
+          if [ "$ASCII_RULE" != "true" ]; then
+            echo "the message allowlist is off for this repository, so no message bytes were read"
           fi
 
           [ "$failed" = "0" ] || exit 1
-          echo "the body, the title and every commit subject carry what they owe"
+          echo "the body, the title and every commit judged carry what they owe"

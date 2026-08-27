@@ -70,6 +70,57 @@ Switching it off is a statement that the board does not meet the rule yet. It
 is better than not calling the check at all, which is a statement about
 nothing.
 
+### If you are deleting a local copy of this check
+
+Sixteen boards call this check and keep their own `pr-hygiene.yml` beside it.
+Reading those sixteen files found five answers this check had no form of, and
+three of them would turn work that passes on those boards today into work that
+is refused the day the local file goes. Three of the five are inputs here now
+and one is a trigger you declare; the reading and what is left of it are
+`#27`.
+
+READ YOUR OWN COPY BEFORE YOU DELETE IT and carry its answer across in the same
+change, where a reader can see it. Every default below is what this check
+already did, so a board that adds nothing moves nowhere.
+
+```yaml
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+jobs:
+  hygiene:
+    uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
+    with:
+      subject_exempt_authors: |
+        dependabot[bot]@users.noreply.github.com
+      outside_contributions_exempt: true
+      message_is_ascii: true
+```
+
+`subject_exempt_authors` is the automation exemption three boards hold. Without
+it a board that deletes its copy starts refusing its own dependency-update pull
+requests, because a bot cannot name an issue it does not know about. It is an
+allowlist of addresses and not a `*[bot]@...` glob, so a human cannot exempt
+themselves by choosing an author address.
+
+`outside_contributions_exempt` waives the subject rule for a fork or for an
+author who is not an owner, member or collaborator. On a board that takes
+outside changes, the alternative is refusing a new contributor's first commit
+for a convention nobody has told them. `subject_names_issue: false` is the only
+other lever and it turns the rule off for everybody rather than for the case it
+was waived for.
+
+`message_is_ascii` refuses a commit message carrying a byte outside printable
+US-ASCII, tab and newline, and refuses a scanner error rather than reading one
+as a clean message. This is the commit MESSAGE. The tracked tree is the unicode
+guard's subject and a different question.
+
+`ready_for_review` IS A TRIGGER AND NOT AN INPUT, so no change here can add it
+for you. Two boards declare it. On a board that opens drafts, a pull request
+taken out of draft is not re-judged without it, so a check that was red on the
+draft is not re-run at the moment the change becomes reviewable.
+
 The unicode guard is called the same way, and needs its own triggers because it
 reads the tree rather than the pull request:
 
