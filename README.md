@@ -22,10 +22,11 @@ copy, so a fix lands in one place and reaches every caller.
 |---|---|
 | `pr-hygiene.yml` | an empty body, a placeholder title, a closing keyword inside a paragraph, a commit subject naming no issue |
 | `unicode-guard.yml` | Trojan Source: bidirectional overrides, isolates and marks, and zero-width characters in the tracked tree |
+| `dco.yml` | a commit with no Developer Certificate of Origin sign-off matching its author, an author or trailer address that is not an address, and a board pointing a contributor at a document it does not hold |
 
-Both run fixtures before they judge anything. If a fixture disagrees with the
-rule it is meant to prove, the run fails and judges nothing, rather than passing
-your change on a check that had quietly stopped working.
+Each of them runs fixtures before it judges anything. If a fixture disagrees
+with the rule it is meant to prove, the run fails and judges nothing, rather
+than passing your change on a check that had quietly stopped working.
 
 `docs/standardisation-survey.md` is the reading behind what comes here next: what
 the boards hold more than once, how far the copies have drifted, and the shapes
@@ -91,6 +92,50 @@ jobs:
 Every branch, not only `main`. A release branch is a code line too, and the
 scan is a cheap read-only grep.
 
+## Calling the DCO gate
+
+```yaml
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    uses: iderex/wache/.github/workflows/dco.yml@30fee603352e802464f87d65a5fa1e44a351067e
+    with:
+      references: |
+        DCO
+        CONTRIBUTING.md
+```
+
+NO RELEASE CARRIES THIS GATE YET, so there is no version for the comment beside
+the hash and none is invented here. The hash above is the commit that added the
+gate, which is what a caller pins until a tag carries it.
+
+`references` IS WHAT YOUR BOARD HOLDS AND NOTHING ELSE. The gate names no
+document of its own; what a contributor is pointed at is the list you declare,
+and the run checks every path in it against your tree before it reads a single
+commit. A path that is not there reds the run. That is deliberate: sixty boards
+carried this gate, the majority content named a certificate file thirteen of
+them do not track and a contributor guide nine of them do not track, and each of
+those boards printed a message sending a contributor to a path that is not
+there. Declare nothing and the message names nothing, which is honest; declare a
+path you do not hold and you find out on your own pull request instead of on
+somebody else's.
+
+`exempt_authors` defaults to `dependabot[bot]` alone. Widen it only for an
+identity you can point at a configuration for. An exemption whose actor nothing
+starts is an open route nobody is watching, and one board had already narrowed
+its own copy for exactly that reason.
+
+The reading behind those figures is
+[`docs/dco-tail.md`](docs/dco-tail.md): twenty-eight singleton copies read one at
+a time, each difference placed as drift or as a board-local deviation, with the
+command beside every number.
+
 ## Pin by hash, not by branch
 
 Callers pin by commit hash with the version in a comment beside it:
@@ -128,6 +173,15 @@ The tags decide this and the paragraph above does not:
 ```sh
 git ls-remote --tags https://github.com/iderex/wache | grep -v '\^{}'
 git rev-list -n1 v1.2.0
+```
+
+NO TAG CARRIES THE DCO GATE. `v1.2.0` is the newest tag and was cut before that
+file existed, so a board calling the gate pins the commit that added it rather
+than a version:
+
+```sh
+gh api "repos/iderex/wache/contents/.github/workflows/dco.yml?ref=v1.2.0"
+{"message":"Not Found","status":"404"}
 ```
 
 Read them before pinning. A version list kept by hand drifts against the tags,
