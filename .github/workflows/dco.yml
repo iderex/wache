@@ -1,0 +1,355 @@
+# The Developer Certificate of Origin, refused once for the whole fleet rather
+# than in sixty files.
+#
+# WHAT THIS IS. A contributor legal-authorization mechanism - OpenSSF Silver /
+# OSPS-LE-01.01 - implemented as a self-contained first-party check, with no
+# external DCO App and no third-party action, so the gate depends on nothing
+# outside the calling repository. It verifies that every non-merge commit in a
+# pull request carries a `Signed-off-by:` trailer matching its author.
+# Fail-closed: any unsigned commit reds the check.
+#
+# WHY IT IS FRESH RATHER THAN THE MAJORITY COPY (iderex/wache#25). Sixty boards
+# carried this gate and there were thirty distinct contents between them. The
+# largest cluster held twenty-nine, and standardising on that cluster was
+# refused because the majority content is where the defects are:
+#
+#   IT CITES AN ISSUE NUMBER THAT RESOLVES ON ONE OF THE TWENTY-NINE BOARDS
+#   CARRYING IT. Twenty-eight have no issue by that number at all, and the
+#   three-copy cluster is the same content with that reference deleted.
+#
+#   ITS FAILURE MESSAGE NAMES A CERTIFICATE PATH THIRTEEN OF THE TWENTY-NINE DO
+#   NOT TRACK, AND A CONTRIBUTOR GUIDE NINE OF THEM DO NOT TRACK. Eight track
+#   neither, including the board the reference copy sits on. One board declares
+#   that in a paragraph; the other eight print the same message in silence.
+#
+# So this file names no board, no tracker and no path of its own. What a
+# contributor is pointed at is the calling board's own declaration, in
+# `references` below, and a path declared there that is not in that tree reds
+# the run instead of being printed at somebody who cannot reach it.
+#
+# THE READING BEHIND EVERY FIGURE ABOVE IS `docs/dco-tail.md`, twenty-eight
+# files read one at a time with the command beside each number. Do not cite the
+# figures from here; they move whenever a board lands anything.
+#
+# WHAT THIS VERSION TAKES FROM THE TAIL IS THE BEST OF IT AND NOT THE MOST
+# COMMON. Four of the twenty-eight singleton copies are strictly tighter than
+# the majority, and all four are here rather than lost in a migration: an
+# author-address syntax leg and a `Co-authored-by` leg from
+# `Flowfin/jellyfin-plugin-metadata-sync`, empty top-level permissions from
+# `iderex/nachtwache`, and `Flowfin/lab`'s narrowing of the bot exemption to the
+# one identity its tree actually starts, which is the default of
+# `exempt_authors` below.
+#
+# THE FIXTURES RUN BEFORE THE JUDGEMENT, in the shape this board's other checks
+# use. A gate that has never refused anything is a green line with nothing
+# behind it. Every rule has a line that must be refused and a line that must
+# pass, and if a fixture disagrees with the rule it is meant to prove, the run
+# fails and judges nothing about the change.
+name: DCO
+
+on:
+  workflow_call:
+    inputs:
+      exempt_authors:
+        description: >-
+          Bot author addresses whose commits are skipped, one per line. A bot
+          cannot certify its own work under the DCO, so its commits are skipped
+          as the DCO App skips them. Each entry is matched exactly and against
+          the `<id>+<entry>` form GitHub mints, never as a `*[bot]@...` glob, so
+          a human cannot self-exempt by crafting a `[bot]`-shaped author
+          address. Widen this only for an identity you can point at a
+          configuration for: an exemption whose actor nothing starts is an open
+          route nobody is watching.
+        type: string
+        default: 'dependabot[bot]@users.noreply.github.com'
+        required: false
+      references:
+        description: >-
+          Paths in the calling repository that the failure message points a
+          contributor at, one per line - a certificate text, a contributor
+          guide, both or neither. Every path declared here is checked against
+          the checked-out tree before any commit is read, and a path that is not
+          there reds the run. That is the defect this file exists downstream of:
+          a message naming a document the board does not hold sends a
+          contributor nowhere and says so to nobody.
+        type: string
+        default: ''
+        required: false
+
+# Nothing at the top level, so a job added here later starts from no permission
+# at all and has to name what it needs. Each job states its own below. Taken
+# from `iderex/nachtwache`, which is the one copy of the sixty that did it.
+permissions: {}
+
+# THE GROUP CARRIES THIS WORKFLOW'S OWN NAME, not the bare pattern a calling
+# board's local gate uses. This file runs on `workflow_call`, so its concurrency
+# group is applied to the CALLER's run, and every local copy of this gate groups
+# on `dco-<PR number>`. With `cancel-in-progress` and a shared group the call
+# would cancel the board's own gate before it executed a step, which is what
+# this board's shared hygiene check did to sixteen local copies of itself
+# (issue #4). A board that adds the call before it removes its copy would
+# otherwise pay that in the window between the two.
+concurrency:
+  group: wache-dco-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dco:
+    name: DCO sign-off
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history so the base..head commit range is walkable. No step
+          # pushes via git, so do not persist the GITHUB_TOKEN in .git/config.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Judge the fixtures, then the change
+        # The base and head SHAs are passed through env and never interpolated
+        # into the script, so a crafted ref cannot be evaluated as shell.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EXEMPT_AUTHORS: ${{ inputs.exempt_authors }}
+          REFERENCES: ${{ inputs.references }}
+        run: |
+          set -euo pipefail
+
+          # An address is an address: a non-empty local part, one `@`, a dotted
+          # domain, and no whitespace or angle brackets anywhere in it. That is
+          # syntax and nothing more, which is the whole of what it claims. It
+          # refuses the empty address, a bare word and a command-line flag such
+          # as `--get-all`, and it says nothing about whether a mailbox exists
+          # or who reads it.
+          #
+          # WHY IT IS HERE AT ALL: both sides of the sign-off comparison are
+          # built from the same commit, so a commit whose author address is a
+          # stray flag agrees with itself and passes a gate that does not read
+          # this. That is measured rather than supposed, on
+          # `Flowfin/jellyfin-plugin-metadata-sync`, whose copy is where this
+          # leg comes from.
+          is_address() {
+            printf '%s' "$1" | grep -qE '^[^[:space:]<>@]+@[^[:space:]<>@.]+(\.[^[:space:]<>@.]+)+$'
+          }
+
+          # An entry matches the address itself or GitHub's `<id>+<entry>` form.
+          # The entry is expanded inside quotes in the pattern, so `[bot]` is
+          # five literal characters and not a bracket expression.
+          is_exempt() {
+            local address=$1 entry
+            while IFS= read -r entry; do
+              entry="${entry#"${entry%%[![:space:]]*}"}"
+              entry="${entry%"${entry##*[![:space:]]}"}"
+              [ -n "$entry" ] || continue
+              case "$address" in
+                "$entry" | *"+$entry") return 0 ;;
+              esac
+            done <<< "${EXEMPT_AUTHORS:-}"
+            return 1
+          }
+
+          # Every refusal one commit earns, one per line, and nothing at all for
+          # a commit that owes nothing. The walk and the fixtures call this same
+          # function, so what the fixtures prove is what judges the change.
+          commit_refusals() {
+            local name=$1 address=$2 message=$3
+            local trailers trailer field value trailer_address
+
+            if ! is_address "$address"; then
+              echo "the author address is not an address: <${address}>"
+              return 0
+            fi
+
+            # `Co-authored-by` carries the same shape as the sign-off and
+            # asserts the same authorship. It is read by a different consumer -
+            # GitHub's attribution rather than this gate - and an address that
+            # identifies nobody is worth as little there.
+            trailers=$(printf '%s\n' "$message" | grep -E '^(Signed-off-by|Co-authored-by):' || true)
+            if [ -n "$trailers" ]; then
+              while IFS= read -r trailer; do
+                field=${trailer%%:*}
+                value=${trailer#*:}
+                value="${value#"${value%%[![:space:]]*}"}"
+                if ! printf '%s' "$value" | grep -qE '<[^<>]*>$'; then
+                  echo "the ${field} trailer carries no <address>: ${value}"
+                  continue
+                fi
+                trailer_address=${value##*<}
+                trailer_address=${trailer_address%>}
+                if ! is_address "$trailer_address"; then
+                  echo "the ${field} address is not an address: <${trailer_address}>"
+                fi
+              done <<< "$trailers"
+            fi
+
+            # `grep -qxF` rather than a substring test: a whole line, taken
+            # literally, so a trailer folded into a sentence does not count and
+            # a name carrying a bracket is not read as a pattern.
+            if ! printf '%s\n' "$message" | grep -qxF "Signed-off-by: ${name} <${address}>"; then
+              echo "the sign-off is missing: Signed-off-by: ${name} <${address}>"
+            fi
+          }
+
+          # Each declared reference, read against a tree rather than assumed.
+          missing_references() {
+            local root=$1 list=$2 path
+            while IFS= read -r path; do
+              path="${path#"${path%%[![:space:]]*}"}"
+              path="${path%"${path##*[![:space:]]}"}"
+              [ -n "$path" ] || continue
+              [ -e "$root/$path" ] || echo "$path"
+            done <<< "$list"
+          }
+
+          self_test=0
+          must_refuse() { # name, author name, author address, message, wanted
+            local got
+            got=$(commit_refusals "$2" "$3" "$4")
+            if [[ $got == *"$5"* ]]; then
+              echo "fixture ok     $1"
+            else
+              echo "FIXTURE FAILED $1: got ${got:-nothing}"
+              self_test=1
+            fi
+          }
+          must_pass() { # name, author name, author address, message
+            local got
+            got=$(commit_refusals "$2" "$3" "$4")
+            if [ -z "$got" ]; then
+              echo "fixture ok     $1"
+            else
+              echo "FIXTURE FAILED $1: got $got"
+              self_test=1
+            fi
+          }
+          must_exempt() {
+            if is_exempt "$2"; then echo "fixture ok     $1"; else echo "FIXTURE FAILED $1"; self_test=1; fi
+          }
+          must_not_exempt() {
+            if is_exempt "$2"; then echo "FIXTURE FAILED $1"; self_test=1; else echo "fixture ok     $1"; fi
+          }
+
+          author='Ada Lovelace'
+          address='ada@example.org'
+          signed=$(printf '%s\n\n%s\n' 'A subject line' "Signed-off-by: ${author} <${address}>")
+
+          must_pass     "a matching sign-off passes"          "$author" "$address" "$signed"
+          must_refuse   "no sign-off at all"                  "$author" "$address" \
+                        'A subject line' \
+                        "the sign-off is missing"
+          must_refuse   "a sign-off naming another author"    "$author" "$address" \
+                        "$(printf '%s\n\n%s\n' 'A subject line' 'Signed-off-by: Someone Else <else@example.org>')" \
+                        "the sign-off is missing"
+          must_refuse   "a trailer folded into a sentence"    "$author" "$address" \
+                        "I certify this, Signed-off-by: ${author} <${address}> in passing." \
+                        "the sign-off is missing"
+          must_refuse   "an author address that is a flag"    "$author" '--get-all' \
+                        "$(printf '%s\n\n%s\n' 'A subject line' 'Signed-off-by: Ada Lovelace <--get-all>')" \
+                        "the author address is not an address"
+          must_refuse   "an empty author address"             "$author" '' \
+                        'A subject line' \
+                        "the author address is not an address"
+          must_refuse   "an author address with no dot"       "$author" 'ada@localhost' \
+                        "$(printf '%s\n\n%s\n' 'A subject line' 'Signed-off-by: Ada Lovelace <ada@localhost>')" \
+                        "the author address is not an address"
+          must_refuse   "a co-author with no angle brackets"  "$author" "$address" \
+                        "$(printf '%s\n\n%s\n%s\n' 'A subject line' "Signed-off-by: ${author} <${address}>" 'Co-authored-by: Grace Hopper')" \
+                        "the Co-authored-by trailer carries no <address>"
+          must_refuse   "a co-author address that is a word"  "$author" "$address" \
+                        "$(printf '%s\n\n%s\n%s\n' 'A subject line' "Signed-off-by: ${author} <${address}>" 'Co-authored-by: Grace Hopper <grace>')" \
+                        "the Co-authored-by address is not an address"
+          must_pass     "a well-formed co-author passes"      "$author" "$address" \
+                        "$(printf '%s\n\n%s\n%s\n' 'A subject line' "Signed-off-by: ${author} <${address}>" 'Co-authored-by: Grace Hopper <grace@example.org>')"
+          must_pass     "a name carrying a bracket passes"    'Ada [Lovelace]' "$address" \
+                        "$(printf '%s\n\n%s\n' 'A subject line' "Signed-off-by: Ada [Lovelace] <${address}>")"
+
+          must_exempt     "the bare bot address is exempt"      'dependabot[bot]@users.noreply.github.com'
+          must_exempt     "the id+bot form is exempt"           '49699333+dependabot[bot]@users.noreply.github.com'
+          must_not_exempt "a bot-shaped human address is not"   'dependabot[bot]@example.org'
+          must_not_exempt "a bot outside the list is not"       'github-actions[bot]@users.noreply.github.com'
+          must_not_exempt "an ordinary author is not"           "$address"
+
+          probe=$(mktemp -d)
+          trap 'rm -rf "$probe"' EXIT
+          : > "$probe/DCO"
+          if [ "$(missing_references "$probe" "$(printf 'DCO\nCONTRIBUTING.md\n')")" = "CONTRIBUTING.md" ]; then
+            echo "fixture ok     a declared path that is not in the tree is reported"
+          else
+            echo "FIXTURE FAILED a declared path that is not in the tree is reported"
+            self_test=1
+          fi
+          if [ -z "$(missing_references "$probe" "$(printf 'DCO\n')")" ]; then
+            echo "fixture ok     a declared path that is in the tree is not reported"
+          else
+            echo "FIXTURE FAILED a declared path that is in the tree is not reported"
+            self_test=1
+          fi
+
+          if [ "$self_test" != "0" ]; then
+            echo "::error::the fixtures failed, so this run judges nothing"
+            exit 1
+          fi
+
+          failed=0
+
+          # THE DECLARATION IS JUDGED BEFORE THE COMMITS ARE. A board pointing a
+          # contributor at a document it does not hold is the defect this file
+          # was written to stop repeating, and it is refused here rather than
+          # printed inside a failure message nobody can act on.
+          while IFS= read -r missing; do
+            [ -n "$missing" ] || continue
+            echo "::error::references names ${missing}, which is not in this tree. Point at a path this board holds, or remove it."
+            failed=1
+          done < <(missing_references "." "${REFERENCES:-}")
+          if [ "$failed" != "0" ]; then
+            exit 1
+          fi
+
+          # Guard the walk explicitly so a `git rev-list` failure reds the job
+          # instead of silently passing it: a command-substitution failure
+          # inside a `for ... in $(...)` word list does not trip `set -e`, which
+          # would pass the gate with nothing verified at all.
+          if ! commits=$(git rev-list --no-merges "$BASE_SHA".."$HEAD_SHA"); then
+            echo "::error::Could not walk the commit range ${BASE_SHA}..${HEAD_SHA}."
+            exit 1
+          fi
+
+          read_commits=0
+          for sha in $commits; do
+            author_name=$(git show -s --format='%an' "$sha")
+            author_email=$(git show -s --format='%ae' "$sha")
+            if is_exempt "$author_email"; then
+              echo "skip  $sha (bot: $author_email)"
+              continue
+            fi
+            read_commits=$((read_commits + 1))
+            commit_failed=0
+            while IFS= read -r refusal; do
+              [ -n "$refusal" ] || continue
+              echo "FAIL  $sha ${refusal}"
+              failed=1
+              commit_failed=1
+            done < <(commit_refusals "$author_name" "$author_email" "$(git show -s --format='%B' "$sha")")
+            if [ "$commit_failed" = "0" ]; then
+              echo "ok    $sha"
+            fi
+          done
+
+          if [ "$failed" != "0" ]; then
+            message="One or more commits lack a DCO sign-off matching the author, or name something that is not an address where an address belongs. Sign your work with 'git commit -s', or add it retroactively with 'git rebase --signoff <base>', from an author address that is one."
+            while IFS= read -r reference; do
+              reference="${reference#"${reference%%[![:space:]]*}"}"
+              reference="${reference%"${reference##*[![:space:]]}"}"
+              [ -n "$reference" ] || continue
+              message="${message} See ${reference}."
+            done <<< "${REFERENCES:-}"
+            echo "::error::${message}"
+            exit 1
+          fi
+          echo "${read_commits} commit(s) read, and every one carries a matching DCO sign-off."
