@@ -142,6 +142,28 @@ jobs:
             return 1
           }
 
+          # THE REFUSAL ITSELF, so that a fixture reaches it rather than only
+          # the comparison feeding it. A guard whose fixtures sit one function
+          # below the refusal stays green when the refusal is deleted, and what
+          # a proof is worth is which site it executes.
+          judge_key() {
+            local doc=$1 file=$2 ref=$3 declared=$4 key=$5
+            if declares_key "$declared" "$key"; then
+              echo "ok    $doc passes $key to $file@${ref:0:9}"
+              return 0
+            fi
+            echo "::error::$doc passes \`$key\` to $file at ${ref:0:9}, and that ref declares no such input. A board following this example reaches startup_failure with no job and no check run."
+            return 1
+          }
+
+          # Runs the refusal and prints its exit code beside the line it wrote,
+          # so a fixture pins both.
+          judged() {
+            local out rc=0
+            out=$(judge_key "$@") || rc=$?
+            printf '%s|%s' "$rc" "$out"
+          }
+
           self_test=0
           same() {
             if [ "$2" = "$3" ]; then
@@ -256,15 +278,22 @@ jobs:
                "$(printf '%s\n' "$document" | calling_examples README.md | tr '\t' ' ' | tr '\n' '|')" \
                "USES README.md pr-hygiene.yml abc123|WITH README.md pr-hygiene.yml abc123 subject_exempt_authors|WITH README.md pr-hygiene.yml abc123 message_is_ascii|USES README.md unicode-guard.yml def456|"
 
-          same "an undeclared key is refused" \
+          same "a key the ref does not declare is not declared" \
                "$(declares_key "$(printf 'subject_names_issue\n')" 'message_is_ascii' && echo declared || echo refused)" \
                "refused"
-          same "a declared key passes" \
+          same "a key the ref declares is declared" \
                "$(declares_key "$(printf 'subject_names_issue\nmessage_is_ascii\n')" 'message_is_ascii' && echo declared || echo refused)" \
                "declared"
-          same "no declared input refuses every key" \
+          same "a ref declaring nothing declares no key" \
                "$(declares_key "" 'anything' && echo declared || echo refused)" \
                "refused"
+
+          same "an undeclared key is refused, by name and with its pin" \
+               "$(judged README.md pr-hygiene.yml 113085b269d3437a3f96ff9e7060b64b0af88ab1 "$(printf 'subject_names_issue\n')" 'message_is_ascii')" \
+               "1|::error::README.md passes \`message_is_ascii\` to pr-hygiene.yml at 113085b26, and that ref declares no such input. A board following this example reaches startup_failure with no job and no check run."
+          same "a declared key passes and says so" \
+               "$(judged README.md pr-hygiene.yml 113085b269d3437a3f96ff9e7060b64b0af88ab1 "$(printf 'subject_names_issue\n')" 'subject_names_issue')" \
+               "0|ok    README.md passes subject_names_issue to pr-hygiene.yml@113085b26"
 
           if [ "$self_test" != "0" ]; then
             echo "::error::the fixtures failed, so this run judges nothing"
@@ -317,12 +346,7 @@ jobs:
             [ "$kind" = "WITH" ] || continue
             pin="$file@$ref"
             [ "${resolved[$pin]:-no}" = "yes" ] || continue
-            if declares_key "${declared_for[$pin]}" "$key"; then
-              echo "ok    $doc passes $key to $file@${ref:0:9}"
-            else
-              echo "::error::$doc passes \`$key\` to $file at ${ref:0:9}, and that ref declares no such input. A board following this example reaches startup_failure with no job and no check run."
-              failed=1
-            fi
+            judge_key "$doc" "$file" "$ref" "${declared_for[$pin]}" "$key" || failed=1
           done < "$records"
 
           echo "examined $examples calling example(s) in $documents tracked document(s)"

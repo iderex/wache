@@ -333,23 +333,6 @@ does not excuse `closes #8` written into a paragraph above it.
 I took that shape from the version [bremsweg](https://github.com/iderex/bremsweg)
 had already found for itself.
 
-## A probe, removed in the next commit
-
-This example is the shape `#38` is about, put back on purpose so the new check
-can be read refusing it on a runner rather than only on a workstation. The pin
-is `v1.2.0`, which declares `subject_names_issue` and nothing else, and the two
-keys under it landed after that tag was cut.
-
-```yaml
-jobs:
-  hygiene:
-    uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
-    with:
-      subject_names_issue: true
-      message_is_ascii: true
-      outside_contributions_exempt: true
-```
-
 ## Licence
 
 AGPL-3.0-or-later. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
