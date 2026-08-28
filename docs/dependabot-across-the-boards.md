@@ -100,3 +100,80 @@ an updater. I read the distribution and the nine files, and nothing else. On
 `iderex/lichttisch` the file's own comment argues that no updater is the larger
 risk where every action is pinned by sha, which is an argument that reaches the
 other 64 boards, but it is that board's sentence and not a reading of theirs.
+
+## The canonical file, and how a copy declares its origin
+
+Decided on `#24`: a template with a pinned origin, not a sync that pushes.
+GitHub reads `.github/dependabot.yml` out of each repository, so every copy is
+sovereign whatever this board does; a pusher would be a second writer racing the
+board's own workers. This board holds the content and measures what has drifted
+away from it, and the board's own workers move their copy.
+
+The named place is [`templates/dependabot.yml`](../templates/dependabot.yml).
+What it carries is the `github-actions` block and nothing else, for the reason
+the section above gives: the rest of the file is language-shaped and a board's
+own ecosystems belong below the block rather than in it.
+
+A copy replaces two lines in the template's leading comment:
+
+    #   origin: iderex/wache templates/dependabot.yml
+    #   taken-at: <the 40-character iderex/wache commit this copy was taken from>
+
+Those two lines are the whole of the contract. A copy carrying neither is not
+read as up to date and not read as drifted - it is not read at all, and that is
+the state the drift test reports separately from a difference.
+
+## The drift test
+
+Two files and one comparison. `block` prints the `github-actions` entry of a
+`dependabot.yml`, comment lines and blank lines dropped, and stops at the next
+ecosystem:
+
+```
+block() {
+  awk '
+    /^  - package-ecosystem:/ { keep = ($0 ~ /github-actions/) }
+    keep && $0 !~ /^[[:space:]]*#/ && NF { print }
+  '
+}
+
+gh api "repos/$r/contents/.github/dependabot.yml" --jq '.content' | base64 -d > copy.yml
+sed -n 's/^#   taken-at: *//p' copy.yml          # the commit the copy names
+git show "$taken_at:templates/dependabot.yml" | block | diff - <(block < copy.yml)
+```
+
+Run against the nine boards that carry the file, with the canonical side taken
+from `templates/dependabot.yml` as this change proposes it, because no copy
+names an origin yet and there is nothing to resolve `$taken_at` to:
+
+    Flowfin/jellyfin-plugin-invites            19 differing line(s)
+    Flowfin/jellyfin-plugin-sso                14
+    Flowfin/lab                                11
+    Flowfin/site                                5
+    iderex/cudec                               12
+    iderex/Easy-Compliance-Manager             10
+    iderex/lichttisch                          10
+    iderex/retusche                             8
+    iderex/swarm.asm                           10
+
+Nine of nine differ, which is what the section above predicts and not a
+surprise: none of these boards has ever been shown this file. The presence
+reading was re-run at the same time and still returns 64 absent, nine present,
+nine distinct blob ids.
+
+WHAT THIS TEST CANNOT DO, and it is a floor rather than a measurement of
+meaning. It compares BYTES. A copy that differs only in quoting, in key order or
+in a `day:` and `time:` beside the interval is reported as drifted, and the
+figures above include exactly that. Four of the nine write the schedule out in
+more detail than the canonical block does, and every one of those lines counts:
+
+    block < copy.yml | grep -cE '^      (day|time|timezone):'
+    iderex/cudec 3, iderex/Easy-Compliance-Manager 3, iderex/swarm.asm 3,
+    iderex/retusche 1, and 0 on the other five
+
+A comparison that judged meaning would need a YAML parser, which is a means this
+board does not carry today and is not added here for a reading.
+
+WHAT OPENS AN ISSUE ON A DRIFTED BOARD IS THE SWEEP AND NOT THIS PAGE. `#31` is
+where that sweep lives, this board writes into no other tree, and nothing in
+this repository runs the comparison above on a schedule today.
