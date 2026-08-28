@@ -224,6 +224,14 @@ Callers pin by commit hash with the version in a comment beside it:
 uses: iderex/wache/.github/workflows/pr-hygiene.yml@4d91113f744527d4dd6397bb09fb276ef18b09fc # v1.3.0
 ```
 
+EVERY CALLING EXAMPLE IN THIS BOARD'S DOCUMENTS IS JUDGED AGAINST ITS OWN PIN.
+A pin and the inputs written under it are two independent halves that have to
+agree, and they came apart inside one merge (`#38`). `calling-examples.yml`
+resolves each ref, reads what that commit declares under
+`on.workflow_call.inputs`, and refuses a key passed to it that is not there. It
+does not judge whether the version comment beside a pin names the tag that ref
+resolves to, and it does not judge whether the ref is reachable from `main`.
+
 `@main` would let this repository change what executes on every board that calls
 it, without anybody reviewing the change. Several boards run an action-pin guard
 that refuses a moving reference outright, and they are right to.
