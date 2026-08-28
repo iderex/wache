@@ -28,6 +28,15 @@ Each of them runs fixtures before it judges anything. If a fixture disagrees
 with the rule it is meant to prove, the run fails and judges nothing, rather
 than passing your change on a check that had quietly stopped working.
 
+ONE THING HERE IS COPIED RATHER THAN CALLED, and it is the only file on this
+board that cannot be a reusable workflow. GitHub reads `.github/dependabot.yml`
+out of each repository, so `templates/dependabot.yml` is a template: it holds the
+`github-actions` block every board's copy can share, a board's own ecosystems go
+below it, and the copy names the origin and the commit it was taken at in a
+leading comment. This board measures drift and writes into no other tree. The
+reading, the copy contract and the drift test are
+[`docs/dependabot-across-the-boards.md`](docs/dependabot-across-the-boards.md).
+
 `docs/standardisation-survey.md` is the reading behind what comes here next: what
 the boards hold more than once, how far the copies have drifted, and the shapes
 standardisation could take. It ends in a decision request rather than in an

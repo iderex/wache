@@ -1,0 +1,60 @@
+# THE CANONICAL DEPENDABOT CONFIGURATION, COPIED RATHER THAN CALLED.
+#
+# GitHub reads `.github/dependabot.yml` out of each repository, so this one is
+# the only file on this board that cannot be a reusable workflow. A copy is
+# sovereign: nothing here executes on your board and nothing here can change
+# your board's file. What this board does instead is hold the agreed content in
+# one named place and MEASURE what has drifted away from it (issue #24).
+#
+# HOW A COPY DECLARES WHERE IT CAME FROM. Replace the two lines below with the
+# path this file was taken from and the iderex/wache commit it was taken at.
+# The drift test in docs/dependabot-across-the-boards.md reads exactly those two
+# lines; a copy that carries neither is not judged as drifted, it is not judged
+# at all.
+#
+#   origin: iderex/wache templates/dependabot.yml
+#   taken-at: <the 40-character iderex/wache commit this copy was taken from>
+#
+# WHAT IS CANONICAL HERE IS THE `github-actions` BLOCK AND NOTHING ELSE.
+# `dependabot.yml` is language-shaped - every board that carries one declares
+# `github-actions` and then whatever the board is written in, `nuget`, `gomod`,
+# `cargo` or `uv` - so identical files across boards would be the surprising
+# result rather than the expected one. Add your board's own ecosystems BELOW
+# this block, and leave this block alone so the drift test can read it.
+#
+# WHERE THE FOUR VALUES COME FROM. Each one is the answer the nine boards that
+# already configure an updater actually hold, read one file at a time in
+# docs/dependabot-across-the-boards.md, and not a preference:
+#
+#   default-days: 7            all nine
+#   interval: weekly           eight of nine
+#   open-pull-requests-limit   5 on four boards, 10 on two, 3 on two, absent on one
+#   groups                     eight of nine
+#
+# THE QUOTING IS DERIVED THE SAME WAY AND IS NOT A HOUSE STYLE. Six of the nine
+# leave `package-ecosystem` and `interval` unquoted and eight of the nine quote
+# `directory`, so this file does the same. It matters because the drift test is
+# a byte comparison of this block: a quoting choice nobody holds would report
+# every copy as drifted for a difference that changes nothing.
+#
+# Labels are NOT here. Four of the nine set them and five do not, which is not
+# an answer this board may record on their behalf.
+#
+# WHY AN UPDATER AT ALL ON A BOARD THAT PINS BY SHA. A pinned sha never moves on
+# its own, so pinning removes the surprise and keeps the version. This block is
+# the only thing that moves it afterwards. That argument is `iderex/lichttisch`'s
+# own comment, read there rather than invented here.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
