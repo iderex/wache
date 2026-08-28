@@ -42,7 +42,7 @@ on:
 
 jobs:
   hygiene:
-    uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
+    uses: iderex/wache/.github/workflows/pr-hygiene.yml@4d91113f744527d4dd6397bb09fb276ef18b09fc # v1.3.0
 ```
 
 DECLARE THE TYPES. The default set for `pull_request` is `opened`,
@@ -62,7 +62,7 @@ one rule off and keep the rest:
 ```yaml
 jobs:
   hygiene:
-    uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
+    uses: iderex/wache/.github/workflows/pr-hygiene.yml@4d91113f744527d4dd6397bb09fb276ef18b09fc # v1.3.0
     with:
       subject_names_issue: false
 ```
@@ -91,7 +91,7 @@ on:
 
 jobs:
   hygiene:
-    uses: iderex/wache/.github/workflows/pr-hygiene.yml@c96bdee7eefddee8120ae4be58e6f3d4eaa1f157
+    uses: iderex/wache/.github/workflows/pr-hygiene.yml@4d91113f744527d4dd6397bb09fb276ef18b09fc # v1.3.0
     with:
       subject_exempt_authors: |
         dependabot[bot]@users.noreply.github.com
@@ -99,14 +99,15 @@ jobs:
       message_is_ascii: true
 ```
 
-NO RELEASE CARRIES THESE THREE INPUTS YET, so the pin above is the commit that
-added them rather than a tag, and no version comment is invented beside it.
-`v1.2.0` is the newest tag; it declares `subject_names_issue` and nothing else,
-which is above the floor `#27` asks for and below what this example passes. A
-caller in that state does not quietly fall back to the defaults - the run
-reaches `startup_failure` with no job and no check run, so a board that deleted
-its own copy in the same change is left with neither gate. That was read on this
-board's pull request `#37` rather than assumed.
+`v1.3.0` IS THE FIRST RELEASE THAT DECLARES THESE THREE INPUTS, so the pin above
+names a version in its comment again rather than standing as a bare commit.
+`v1.2.0` declares `subject_names_issue` and nothing else, which is above the
+floor `#27` asks for and below what this example passes, and a caller in that
+state does not quietly fall back to the defaults - the run reaches
+`startup_failure` with no job and no check run, so a board that deleted its own
+copy in the same change is left with neither gate. That was read on this board's
+pull request `#37` rather than assumed, and it is why the version beside the
+hash matters here more than anywhere else in this file.
 
 `subject_exempt_authors` is the automation exemption three boards hold. Without
 it a board that deletes its copy starts refusing its own dependency-update pull
@@ -146,7 +147,7 @@ permissions:
 
 jobs:
   unicode:
-    uses: iderex/wache/.github/workflows/unicode-guard.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
+    uses: iderex/wache/.github/workflows/unicode-guard.yml@4d91113f744527d4dd6397bb09fb276ef18b09fc # v1.3.0
 ```
 
 Every branch, not only `main`. A release branch is a code line too, and the
@@ -164,16 +165,19 @@ permissions:
 
 jobs:
   dco:
-    uses: iderex/wache/.github/workflows/dco.yml@30fee603352e802464f87d65a5fa1e44a351067e
+    uses: iderex/wache/.github/workflows/dco.yml@4d91113f744527d4dd6397bb09fb276ef18b09fc # v1.3.0
     with:
       references: |
         DCO
         CONTRIBUTING.md
 ```
 
-NO RELEASE CARRIES THIS GATE YET, so there is no version for the comment beside
-the hash and none is invented here. The hash above is the commit that added the
-gate, which is what a caller pins until a tag carries it.
+`v1.3.0` IS THE FIRST RELEASE THAT CARRIES THIS GATE. `v1.2.0` was cut before
+the file existed, so a pin at any earlier tag names a commit that holds no such
+workflow. What a caller in that state gets is not read here: the
+`startup_failure` above was measured for a pin declaring too few inputs, on this
+board's pull request `#37`, and a missing file is a different case nobody has
+run.
 
 `references` IS WHAT YOUR BOARD HOLDS AND NOTHING ELSE. The gate names no
 document of its own; what a contributor is pointed at is the list you declare,
@@ -217,7 +221,7 @@ command beside every number.
 Callers pin by commit hash with the version in a comment beside it:
 
 ```yaml
-uses: iderex/wache/.github/workflows/pr-hygiene.yml@113085b269d3437a3f96ff9e7060b64b0af88ab1 # v1.2.0
+uses: iderex/wache/.github/workflows/pr-hygiene.yml@4d91113f744527d4dd6397bb09fb276ef18b09fc # v1.3.0
 ```
 
 `@main` would let this repository change what executes on every board that calls
@@ -235,7 +239,9 @@ on `codeql-action` while one board was current.
 
 `v1.0.0` was the hygiene check alone. `v1.1.0` added the unicode guard and
 changed nothing in the hygiene check. `v1.2.0` changed only the hygiene check's
-concurrency group, and it is the one release a caller cannot skip.
+concurrency group, and it is the one release a caller cannot skip. `v1.3.0`
+changes what the hygiene check REFUSES, and adds the DCO gate and three inputs
+beside it.
 
 Below `v1.2.0` the shared workflow's group is the bare `pr-hygiene-<PR number>`,
 and a called workflow's concurrency applies to the CALLING board's run. With
@@ -248,27 +254,38 @@ The tags decide this and the paragraph above does not:
 
 ```sh
 git ls-remote --tags https://github.com/iderex/wache | grep -v '\^{}'
-git rev-list -n1 v1.2.0
+git rev-list -n1 v1.3.0
 ```
 
-NO TAG CARRIES THE HYGIENE CHECK'S THREE MIGRATION INPUTS EITHER.
-`subject_exempt_authors`, `outside_contributions_exempt` and `message_is_ascii`
-landed after `v1.2.0` was cut, so a board carrying an answer across from its own
-copy pins the commit that added them rather than a version:
+REPINNING PAST `v1.2.0` MEETS A REFUSAL THAT WAS NOT THERE BEFORE, and it is the
+whole of what `v1.3.0` changes for a board that already calls this check. The
+hygiene check judges every line of a body that carries a closing keyword, rather
+than asking whether one well-formed line stands somewhere in it, so a body that
+was green the day before is refused when `closes #8` sits inside a paragraph
+above a proper `Closes #7`. Everything else in the release is additive and every
+new input defaults to what the check already did.
+
+`v1.3.0` DECLARES THE HYGIENE CHECK'S THREE MIGRATION INPUTS AND `v1.2.0`
+DECLARES NONE OF THEM, so a board carrying an answer across from its own copy
+pins `v1.3.0` or later rather than the commit that added them:
 
 ```sh
+gh api "repos/iderex/wache/contents/.github/workflows/pr-hygiene.yml?ref=v1.3.0" --jq '.content' |
+  base64 -d | grep -cE '^      (subject_exempt_authors|outside_contributions_exempt|message_is_ascii):'
+3
 gh api "repos/iderex/wache/contents/.github/workflows/pr-hygiene.yml?ref=v1.2.0" --jq '.content' |
   base64 -d | grep -cE '^      (subject_exempt_authors|outside_contributions_exempt|message_is_ascii):'
 0
 ```
 
-NO TAG CARRIES THE DCO GATE. `v1.2.0` is the newest tag and was cut before that
-file existed, so a board calling the gate pins the commit that added it rather
-than a version:
+`v1.3.0` CARRIES THE DCO GATE AND NO EARLIER TAG DOES. `v1.2.0` was cut before
+that file existed:
 
 ```sh
+gh api "repos/iderex/wache/contents/.github/workflows/dco.yml?ref=v1.3.0" --jq '.name'
+dco.yml
 gh api "repos/iderex/wache/contents/.github/workflows/dco.yml?ref=v1.2.0"
-{"message":"Not Found","status":"404"}
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/contents#get-repository-content","status":"404"}
 ```
 
 Read them before pinning. A version list kept by hand drifts against the tags,
