@@ -148,8 +148,10 @@ jobs:
           # a proof is worth is which site it executes.
           judge_key() {
             local doc=$1 file=$2 ref=$3 declared=$4 key=$5
-            echo "ok    $doc passes $key to $file@${ref:0:9}"
-            return 0
+            if declares_key "$declared" "$key"; then
+              echo "ok    $doc passes $key to $file@${ref:0:9}"
+              return 0
+            fi
             echo "::error::$doc passes \`$key\` to $file at ${ref:0:9}, and that ref declares no such input. A board following this example reaches startup_failure with no job and no check run."
             return 1
           }
