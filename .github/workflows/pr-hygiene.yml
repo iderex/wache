@@ -69,6 +69,52 @@ on:
         type: boolean
         default: false
         required: false
+      # THE INPUT BELOW IS THE ONE ANSWER OF THE FIVE THAT NEEDS SOMETHING THE
+      # RUN CANNOT REACH (issue #36). The three above refuse or waive on bytes
+      # already in the checkout - an author address, a message, the pull
+      # request's own fork and association fields. This one asks the tracker,
+      # so turning it on is a change to the CALLING CONTRACT and not a value
+      # passed to a workflow that already runs.
+      resolve_referenced_numbers:
+        description: >-
+          Resolve every issue number a commit subject names instead of only
+          matching its shape. TURNING THIS ON TAKES TWO LINES IN THE CALLER, not
+          one: `issues: read` in its `permissions:` block, and the
+          `issue_read_token` secret below carrying its own `GITHUB_TOKEN`. Off
+          by default, and a board that adds nothing moves nowhere. With it on, a
+          subject naming a pull request, or a number that does not exist, is
+          refused where the shape match passes it - and a lookup that does not
+          answer is refused too, rather than being read as a number that checked
+          out.
+        type: boolean
+        default: false
+        required: false
+    # THE TOKEN ARRIVES AS A SECRET AND NOT AS A JOB PERMISSION, AND THAT IS
+    # MEASURED RATHER THAN PREFERRED. This job first asked for `issues: read` in
+    # its own `permissions:` block, gated behind `if: inputs.resolve_...` so it
+    # would be skipped for every caller that had not asked for it. THAT IS NOT
+    # WHAT HAPPENS. A called workflow cannot hold more permission than its
+    # caller, the comparison is made before any job is created, and the `if:`
+    # never gets a chance to skip anything: this board's own caller, granting
+    # `contents: read` alone and passing no inputs, reached `startup_failure`
+    # with no job and no check run, on run 33193863320 of pull request #43. Every
+    # one of the seventeen boards calling this file grants `contents: read`
+    # alone, so shipping that would have taken the hygiene check off all
+    # seventeen in one merge.
+    #
+    # A secret costs a caller that wants nothing exactly nothing: it is optional,
+    # an absent one arrives empty, and no job here asks for a permission its
+    # caller may not hold.
+    secrets:
+      issue_read_token:
+        description: >-
+          A token that may read issues on the boards a commit subject names.
+          Pass the caller's own `GITHUB_TOKEN` from a workflow whose
+          `permissions:` block grants `issues: read`. Required only when
+          `resolve_referenced_numbers` is on; without it that job refuses rather
+          than passing, because a lookup nothing could make is not a lookup that
+          found nothing wrong.
+        required: false
 
 permissions: {}
 
@@ -368,3 +414,268 @@ jobs:
 
           [ "$failed" = "0" ] || exit 1
           echo "the body, the title and every commit judged carry what they owe"
+
+  # A SECOND JOB RATHER THAN A SECOND ARM ON THE FIRST, so that a caller which
+  # has not turned this on runs nothing extra and sees nothing extra in its
+  # checks list. ITS PERMISSIONS ARE THE SAME AS THE JOB ABOVE, deliberately:
+  # the reading that made this file ask for a permission it does not need is
+  # written at the `issue_read_token` secret above, with the run that produced
+  # it.
+  references:
+    name: Every referenced number is an issue that exists
+    if: ${{ inputs.resolve_referenced_numbers }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Judge the fixtures, then the references
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          THIS_REPO: ${{ github.repository }}
+          ISSUE_READ_TOKEN: ${{ secrets.issue_read_token }}
+        run: |
+          set -euo pipefail
+
+          # `[#N]` resolves against the board the pull request is on; a mention
+          # written `owner/repo#N` resolves against the board it names. Both
+          # shapes are the ones the job above already matches, read out of the
+          # same subject rather than out of a second convention.
+          #
+          # EVERY PIPELINE HERE ENDS IN `|| true` AND THE FUNCTION IN
+          # `return 0`, WHICH IS NOT DEFENSIVE NOISE. `grep` exits 1 when it
+          # matches nothing, `set -o pipefail` carries that out of the pipeline,
+          # and the live loop below reads this function into a variable with
+          # `targets=$(reference_targets ...)` - an assignment whose status IS
+          # the substitution's, so under `set -e` a subject naming no number
+          # killed the whole step instead of being skipped. It did, on a range
+          # of five real commits, before the fixture below existed to say so.
+          reference_targets() {
+            local subject=$1 repo=$2 n
+            printf '%s' "$subject" | grep -oE '\[#[0-9]+\]' | tr -d '[]#' |
+              while IFS= read -r n; do [ -n "$n" ] && printf '%s#%s\n' "$repo" "$n"; done || true
+            printf '%s' "$subject" |
+              grep -oE '(^|[^A-Za-z0-9_/-])[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[0-9]+' |
+              sed -E 's/^[^A-Za-z0-9_.-]+//' || true
+            return 0
+          }
+
+          # Reads the function the way the live loop reads it - into a variable -
+          # and prints the exit status beside the result, so a fixture pins the
+          # status and not only the text.
+          assigned_targets() {
+            local out rc=0
+            out=$(reference_targets "$1" 'iderex/wache') || rc=$?
+            printf '%s|%s' "$rc" "$(printf '%s' "$out" | tr '\n' ' ')"
+          }
+
+          # THE ISSUES ENDPOINT ANSWERS FOR A PULL REQUEST TOO, and that is the
+          # whole reason this reads a body rather than a status code alone: a
+          # pull request comes back 200 and carries a `pull_request` key, which
+          # an issue does not. Anything that is neither is an unanswered lookup
+          # and never a pass.
+          classify() {
+            local status=$1 body=$2
+            case "$status" in
+              200) ;;
+              404) echo missing ; return 0 ;;
+              401 | 403) echo "unauthorised $status" ; return 0 ;;
+              *) echo "unanswered $status" ; return 0 ;;
+            esac
+            if printf '%s' "$body" | jq -e 'has("pull_request")' >/dev/null 2>&1; then
+              echo pull-request
+            elif printf '%s' "$body" | jq -e 'has("number")' >/dev/null 2>&1; then
+              echo issue
+            else
+              echo "unanswered unreadable-body"
+            fi
+          }
+
+          # THE REFUSAL ITSELF, so that a fixture reaches it rather than only
+          # the classification feeding it. A guard whose fixtures sit one
+          # function below the refusal stays green when the refusal is deleted,
+          # which is the shape calling-examples.yml already found here.
+          judge_reference() {
+            local sha=$1 target=$2 verdict=$3
+            case "$verdict" in
+              issue)
+                echo "ok    ${sha:0:9} names $target, and it is an issue"
+                return 0
+                ;;
+              pull-request)
+                echo "::error::${sha:0:9} names $target, which is a pull request and not an issue. The subject rule asks for an issue."
+                return 1
+                ;;
+              missing)
+                echo "::error::${sha:0:9} names $target, and there is no such issue."
+                return 1
+                ;;
+              unauthorised*)
+                echo "::error::${sha:0:9} names $target and the lookup was refused ($verdict). Grant \`issues: read\` in the calling workflow. Refusing rather than reading a refused lookup as a number that checked out."
+                return 1
+                ;;
+              *)
+                echo "::error::${sha:0:9} names $target and the lookup did not answer ($verdict), so nothing was read. Refusing rather than assuming the number is an issue."
+                return 1
+                ;;
+            esac
+          }
+
+          # AN ABSENT TOKEN IS ITS OWN REFUSAL AND NOT A QUIET SKIP. A caller
+          # that turned the input on and passed no secret asked for a reading
+          # this job cannot make, and reporting that as a clean run is the same
+          # failure as reading a 500 as a pass - one step earlier.
+          judge_token() {
+            local token=$1
+            if [ -n "$token" ]; then
+              echo "ok    a token reached this job"
+              return 0
+            fi
+            echo "::error::resolve_referenced_numbers is on and no token reached this job. Grant \`issues: read\` in the calling workflow and pass its own GITHUB_TOKEN as the \`issue_read_token\` secret. Refusing rather than reporting a reading nothing could make."
+            return 1
+          }
+
+          # Runs a refusal and prints its exit code beside the line it wrote, so
+          # a fixture pins both.
+          judged() {
+            local out rc=0
+            out=$(judge_reference "$@") || rc=$?
+            printf '%s|%s' "$rc" "$out"
+          }
+          judged_token() {
+            local out rc=0
+            out=$(judge_token "$@") || rc=$?
+            printf '%s|%s' "$rc" "$out"
+          }
+
+          self_test=0
+          same() {
+            if [ "$2" = "$3" ]; then
+              echo "fixture ok     $1"
+            else
+              echo "FIXTURE FAILED $1: wanted [$3], got [$2]"
+              self_test=1
+            fi
+          }
+
+          same "square brackets resolve against this board" \
+               "$(reference_targets 'A real title [#36]' 'iderex/wache' | tr '\n' ' ')" \
+               "iderex/wache#36 "
+          same "another board is taken as written" \
+               "$(reference_targets 'A title, refs iderex/operations#1552' 'iderex/wache' | tr '\n' ' ')" \
+               "iderex/operations#1552 "
+          same "both shapes in one subject" \
+               "$(reference_targets 'A title [#36] and iderex/operations#1552' 'iderex/wache' | tr '\n' ' ')" \
+               "iderex/wache#36 iderex/operations#1552 "
+          same "two numbers in brackets are two targets" \
+               "$(reference_targets 'A title [#36] [#27]' 'iderex/wache' | tr '\n' ' ')" \
+               "iderex/wache#36 iderex/wache#27 "
+          same "a colour value is not a reference" \
+               "$(reference_targets 'Set the accent to #181818' 'iderex/wache' | tr '\n' ' ')" \
+               ""
+          same "a bare number is not a reference" \
+               "$(reference_targets 'A title #181' 'iderex/wache' | tr '\n' ' ')" \
+               ""
+          # THE NEAR MISS, AND IT IS THE ONE THAT ACTUALLY HAPPENED. A subject
+          # naming no number has to leave the assignment with status 0, or the
+          # step dies on the first ordinary commit instead of skipping it.
+          same "a subject naming nothing assigns cleanly" \
+               "$(assigned_targets 'Set the accent to #181818')" \
+               "0|"
+          same "a subject naming something assigns cleanly too" \
+               "$(assigned_targets 'A real title [#36]')" \
+               "0|iderex/wache#36"
+
+          issue_body='{"number":36,"title":"a title","state":"open"}'
+          pull_body='{"number":37,"title":"a title","pull_request":{"url":"https://example.invalid"}}'
+          same "an issue body is an issue"        "$(classify 200 "$issue_body")" "issue"
+          same "a pull request body is not"       "$(classify 200 "$pull_body")"  "pull-request"
+          same "a 404 is a missing number"        "$(classify 404 '{"message":"Not Found"}')" "missing"
+          same "a 403 names the permission"       "$(classify 403 '{"message":"Resource not accessible"}')" "unauthorised 403"
+          same "a 500 is unanswered"              "$(classify 500 '{}')" "unanswered 500"
+          same "curl not answering is unanswered" "$(classify 000 '')" "unanswered 000"
+          same "a 200 with no number is unanswered" \
+               "$(classify 200 'not json at all')" "unanswered unreadable-body"
+
+          same "an issue passes and says so" \
+               "$(judged 113085b269d3437a3f96ff9e7060b64b0af88ab1 iderex/wache#36 issue)" \
+               "0|ok    113085b26 names iderex/wache#36, and it is an issue"
+          same "a pull request is refused by name" \
+               "$(judged 113085b269d3437a3f96ff9e7060b64b0af88ab1 iderex/wache#37 pull-request)" \
+               "1|::error::113085b26 names iderex/wache#37, which is a pull request and not an issue. The subject rule asks for an issue."
+          same "a number that does not exist is refused" \
+               "$(judged 113085b269d3437a3f96ff9e7060b64b0af88ab1 iderex/wache#99999 missing)" \
+               "1|::error::113085b26 names iderex/wache#99999, and there is no such issue."
+          same "an unanswered lookup is refused, not passed" \
+               "$(judged 113085b269d3437a3f96ff9e7060b64b0af88ab1 iderex/wache#36 'unanswered 500')" \
+               "1|::error::113085b26 names iderex/wache#36 and the lookup did not answer (unanswered 500), so nothing was read. Refusing rather than assuming the number is an issue."
+
+          same "a token that arrived passes and says so" \
+               "$(judged_token 'a-token')" \
+               "0|ok    a token reached this job"
+          same "an absent token is refused, not skipped" \
+               "$(judged_token '')" \
+               "1|::error::resolve_referenced_numbers is on and no token reached this job. Grant \`issues: read\` in the calling workflow and pass its own GITHUB_TOKEN as the \`issue_read_token\` secret. Refusing rather than reporting a reading nothing could make."
+
+          if [ "$self_test" != "0" ]; then
+            echo "::error::the fixtures failed, so this run judges nothing"
+            exit 1
+          fi
+
+          judge_token "${ISSUE_READ_TOKEN:-}" || exit 1
+          GH_TOKEN=${ISSUE_READ_TOKEN:-}
+
+          body_file=$(mktemp)
+          lookup_status=""
+          lookup_body=""
+          lookup() {
+            local target=$1 repo num
+            repo=${target%%#*}
+            num=${target##*#}
+            lookup_status=$(curl -sS -m 20 -o "$body_file" -w '%{http_code}' \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$repo/issues/$num") || lookup_status=000
+            lookup_body=$(cat "$body_file")
+          }
+
+          if ! base=$(git merge-base "$BASE_SHA" "$HEAD_SHA" 2>/dev/null); then
+            echo "::error::the merge base is not in this clone, so no range can be read"
+            exit 1
+          fi
+
+          failed=0
+          seen=0
+          declare -A verdict_for=()
+          while IFS= read -r sha; do
+            [ -n "$sha" ] || continue
+            subject=$(git log -1 --format=%s "$sha")
+            targets=$(reference_targets "$subject" "$THIS_REPO")
+            if [ -z "$targets" ]; then
+              echo "skip  ${sha:0:9} names no number, so there is nothing to resolve"
+              continue
+            fi
+            while IFS= read -r target; do
+              [ -n "$target" ] || continue
+              seen=$((seen + 1))
+              if [ -z "${verdict_for[$target]+set}" ]; then
+                lookup "$target"
+                verdict_for[$target]=$(classify "$lookup_status" "$lookup_body")
+              fi
+              judge_reference "$sha" "$target" "${verdict_for[$target]}" || failed=1
+            done <<< "$targets"
+          done < <(git rev-list --no-merges "$base..$HEAD_SHA")
+
+          echo "resolved $seen reference(s) over ${#verdict_for[@]} distinct number(s)"
+          echo "NOT examined: whether the issue a subject names is the issue the change belongs to. This resolves a number, it does not judge a subject."
+
+          [ "$failed" = "0" ] || exit 1
+          echo "every number named in a commit subject resolves to an issue that exists"

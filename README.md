@@ -85,9 +85,12 @@ nothing.
 Sixteen boards call this check and keep their own `pr-hygiene.yml` beside it.
 Reading those sixteen files found five answers this check had no form of, and
 three of them would turn work that passes on those boards today into work that
-is refused the day the local file goes. Three of the five are inputs here now
-and one is a trigger you declare; the reading and what is left of it are
-`#27`.
+is refused the day the local file goes. What this check has a form of now is the
+list of inputs below rather than a count written here; `ready_for_review` is a
+trigger you declare and not an input; and one answer is decided NOT to come here
+at all, which is the `Scope:` path comparison at the end of this section. The
+reading is `#27` and the two answers that need the caller's permission are
+`#36`.
 
 READ YOUR OWN COPY BEFORE YOU DELETE IT and carry its answer across in the same
 change, where a reader can see it. Every default below is what this check
@@ -140,6 +143,73 @@ guard's subject and a different question.
 for you. Two boards declare it. On a board that opens drafts, a pull request
 taken out of draft is not re-judged without it, so a check that was red on the
 draft is not re-run at the moment the change becomes reviewable.
+
+### Resolving the number instead of matching its shape
+
+`resolve_referenced_numbers` asks the tracker whether the number a commit
+subject names is an issue at all. Without it this check matches `[#181]` and
+`owner/repo#N` as SHAPES and looks nothing up, so a subject naming a pull
+request, or a number nobody ever opened, passes here. `iderex/stammtisch`,
+`iderex/nachtwache` and `iderex/hallraum` hold that answer in their own copies
+today, AND THEY ARE THE THREE BOARDS THAT MUST SET THIS INPUT IN THE SAME
+CHANGE THAT DELETES THEIR FILE. Every other board loses nothing by ignoring it:
+it is off by default.
+
+IT COSTS TWO LINES IN YOUR CALLER AND NOT ONE, and the second one is the part
+that surprises people:
+
+```yaml
+permissions:
+  contents: read
+  issues: read
+```
+
+```yaml
+    with:
+      resolve_referenced_numbers: true
+    secrets:
+      issue_read_token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The permission alone is not enough and the secret alone is not enough. A called
+workflow cannot hold more permission than its caller, so this file cannot ask
+for `issues: read` on your behalf - and it may not ask for it unconditionally
+either. That was read rather than reasoned about: a version of this job that
+declared `issues: read` in its own `permissions:` block, gated behind the input
+so it would be SKIPPED for every caller that had not asked for it, still put
+this board's own caller into `startup_failure` with no job and no check run. The
+comparison happens before any job exists, so the gate never runs. Every board
+calling this file today grants `contents: read` alone, so that shape would have
+taken the hygiene check off all seventeen in one merge. The token therefore
+arrives as an optional secret, which costs a caller that wants nothing exactly
+nothing.
+
+WHAT IT REFUSES, and the fourth case is the one worth reading. A number that
+resolves to an issue passes. A number that resolves to a pull request is
+refused. A number that does not exist is refused. AND A LOOKUP THAT DID NOT
+ANSWER IS REFUSED TOO - a 403 because the permission is missing, a 500, a
+request that never connected - because a reading nothing could make is not a
+reading that found nothing wrong. A caller that turns the input on and passes no
+token is refused before the first lookup, with the two lines above named in the
+error.
+
+WHAT IT DOES NOT JUDGE is whether the issue a subject names is the issue the
+change belongs to. It resolves a number. The run prints that line itself.
+
+NO RELEASED TAG DECLARES THIS INPUT YET, so the pinned examples above do not
+pass it and cannot: this board's `calling-examples.yml` resolves every pin in
+every tracked document and refuses a key the pinned commit does not declare,
+which is exactly the trap it exists for. Read the tags before pinning, as the
+version section below says.
+
+### The `Scope:` path comparison is decided not to come here
+
+`iderex/stammtisch` compares the changed paths against the `Scope:` line of each
+referenced issue, and nothing on this route reads an issue body. It stays that
+way. One board carrying an answer is not seventeen boards asking for one, and a
+shared answer nobody asked for is inventory. That board keeps its local answer;
+if a shared route is ever justified it arrives as its own issue naming at least
+three boards that asked. The decision is on `#36`.
 
 The unicode guard is called the same way, and needs its own triggers because it
 reads the tree rather than the pull request:
