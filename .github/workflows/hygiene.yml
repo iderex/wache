@@ -26,9 +26,25 @@ on:
 # existed, because pr-hygiene.yml asks for `contents: read` to check the tree
 # out and a called workflow cannot hold more than its caller. The failure
 # carries no message on the API, so it is written down here instead.
+# `issues: read` IS HERE BECAUSE OF WHAT IS PASSED BELOW AND FOR NO OTHER
+# REASON. `resolve_referenced_numbers` asks the tracker whether the number a
+# commit subject names is an issue, a called workflow cannot hold more
+# permission than its caller, and the token it reads with is the one this
+# workflow hands it. Take either line out and the other stops meaning anything:
+# without the permission the lookups come back refused and the run reds,
+# without the secret the job refuses before it makes one.
 permissions:
   contents: read
+  issues: read
 
 jobs:
   hygiene:
     uses: ./.github/workflows/pr-hygiene.yml
+    # THIS BOARD IS THE FIRST CALLER TO TURN THIS ON, which is the same reason
+    # it calls its own check at all: an answer nobody has executed is a green
+    # line with nothing behind it. The input defaults to off and no other board
+    # moves for this.
+    with:
+      resolve_referenced_numbers: true
+    secrets:
+      issue_read_token: ${{ secrets.GITHUB_TOKEN }}
