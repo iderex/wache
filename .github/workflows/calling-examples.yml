@@ -1,0 +1,356 @@
+# A CALLING EXAMPLE IS TWO INDEPENDENT THINGS THAT HAVE TO AGREE, and until
+# this ran nothing here compared them. One half is a `uses:` line naming a
+# workflow at a ref; the other is the keys written under the `with:` beside it.
+# Both were correct when they were written and wrong together, inside one merge
+# (issue #38): the migration example pinned `v1.2.0` and passed three inputs
+# that tag does not declare.
+#
+# WHAT A BOARD FOLLOWING SUCH AN EXAMPLE GETS IS NOT A RED EXAMPLE. The run
+# reaches `startup_failure` with no job and no check run, and a board that
+# deleted its own gate in the same change is left with neither - read on this
+# board's pull request #37 rather than assumed.
+#
+# WHY A CHECK RATHER THAN CARE. Every release makes the same trap available
+# again: a new input lands, an example is written against `main`, and the pin
+# beside it is whatever was current. The disagreement is invisible in the diff
+# of either half. Reading `main` after a merge is what caught it the first
+# time, which is a person and not a route.
+#
+# THE READING IS INDENT-AWARE AND NOT A GREP. The grep that first showed the
+# drift also matched `      contents: read` out of a job's `permissions:`
+# block, because a job permission sits at the same depth as an input name. An
+# input is a key one level inside `on.workflow_call.inputs` and nowhere else,
+# and the fixtures carry that near miss by name.
+#
+# THE FIXTURES RUN BEFORE THE JUDGEMENT, as they do in every other check here.
+# If a fixture disagrees with the rule it is meant to prove, the run fails and
+# judges nothing.
+name: Calling examples
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: calling-examples-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  examples:
+    name: A calling example agrees with its pin
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # THE PINS ARE COMMITS IN THIS REPOSITORY and the check resolves each
+          # one out of the clone rather than over the network. A shallow
+          # checkout would leave them unreadable, and an unreadable pin is
+          # refused rather than passed.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Judge the fixtures, then the examples
+        run: |
+          set -euo pipefail
+
+          declared_inputs() {
+            awk '
+              function depth(s,   n) { match(s, /^ */); return RLENGTH }
+              {
+                if ($0 ~ /^[[:space:]]*$/) next
+                if ($0 ~ /^[[:space:]]*#/) next
+                here = depth($0)
+                key = $0
+                sub(/^[[:space:]]+/, "", key)
+
+                if (state >= 3 && here <= inputs_at) state = 2
+                if (state >= 2 && here <= call_at)   state = 1
+                if (state >= 1 && here <= on_at)     state = 0
+
+                if (state == 0) {
+                  if (key ~ /^on:/) { state = 1; on_at = here }
+                  next
+                }
+                if (state == 1) {
+                  if (key ~ /^workflow_call:/) { state = 2; call_at = here }
+                  next
+                }
+                if (state == 2) {
+                  if (key ~ /^inputs:/) { state = 3; inputs_at = here; name_at = -1 }
+                  next
+                }
+                if (name_at < 0) name_at = here
+                if (here != name_at) next
+                if (key ~ /^[A-Za-z0-9_.-]+:/) { sub(/:.*$/, "", key); print key }
+              }
+            '
+          }
+
+          calling_examples() {
+            awk -v doc="$1" '
+              function depth(s,   n) { match(s, /^ */); return RLENGTH }
+              {
+                here = depth($0)
+                text = $0
+                sub(/^[[:space:]]+/, "", text)
+
+                if (in_with && here <= with_at) in_with = 0
+                if (seen_use && here <= use_at && text !~ /^with:/) seen_use = 0
+
+                if (text ~ /^uses:[[:space:]]*iderex\/wache\/\.github\/workflows\//) {
+                  pin = text
+                  sub(/^uses:[[:space:]]*iderex\/wache\/\.github\/workflows\//, "", pin)
+                  sub(/[[:space:]]+#.*$/, "", pin)
+                  sub(/[[:space:]]+$/, "", pin)
+                  at = index(pin, "@")
+                  file = (at > 0) ? substr(pin, 1, at - 1) : pin
+                  ref  = (at > 0) ? substr(pin, at + 1)   : ""
+                  print "USES\t" doc "\t" file "\t" ref
+                  seen_use = 1; use_at = here; in_with = 0
+                  next
+                }
+                if (seen_use && here == use_at && text ~ /^with:/) {
+                  in_with = 1; with_at = here; name_at = -1
+                  next
+                }
+                if (!in_with) next
+                if (name_at < 0) name_at = here
+                if (here != name_at) next
+                if (text ~ /^[A-Za-z0-9_.-]+:/) {
+                  key = text; sub(/:.*$/, "", key)
+                  print "WITH\t" doc "\t" file "\t" ref "\t" key
+                }
+              }
+            '
+          }
+
+          declares_key() {
+            local list=$1 key=$2 entry
+            while IFS= read -r entry; do
+              [ -n "$entry" ] || continue
+              [ "$entry" = "$key" ] && return 0
+            done <<< "$list"
+            return 1
+          }
+
+          # THE REFUSAL ITSELF, so that a fixture reaches it rather than only
+          # the comparison feeding it. A guard whose fixtures sit one function
+          # below the refusal stays green when the refusal is deleted, and what
+          # a proof is worth is which site it executes.
+          judge_key() {
+            local doc=$1 file=$2 ref=$3 declared=$4 key=$5
+            if declares_key "$declared" "$key"; then
+              echo "ok    $doc passes $key to $file@${ref:0:9}"
+              return 0
+            fi
+            echo "::error::$doc passes \`$key\` to $file at ${ref:0:9}, and that ref declares no such input. A board following this example reaches startup_failure with no job and no check run."
+            return 1
+          }
+
+          # Runs the refusal and prints its exit code beside the line it wrote,
+          # so a fixture pins both.
+          judged() {
+            local out rc=0
+            out=$(judge_key "$@") || rc=$?
+            printf '%s|%s' "$rc" "$out"
+          }
+
+          self_test=0
+          same() {
+            if [ "$2" = "$3" ]; then
+              echo "fixture ok     $1"
+            else
+              echo "FIXTURE FAILED $1: wanted [$3], got [$2]"
+              self_test=1
+            fi
+          }
+
+          hygiene_shaped=$(cat <<'FIX'
+          name: PR hygiene
+
+          on:
+            workflow_call:
+              inputs:
+                subject_names_issue:
+                  description: 'names an issue'
+                  type: boolean
+                  default: true
+                message_is_ascii:
+                  type: boolean
+                  default: false
+
+          permissions: {}
+
+          jobs:
+            hygiene:
+              runs-on: ubuntu-latest
+              permissions:
+                contents: read
+              steps:
+                - run: echo hello
+          FIX
+          )
+          same "the declared inputs, and not a job permission" \
+               "$(printf '%s\n' "$hygiene_shaped" | declared_inputs | tr '\n' ' ')" \
+               "subject_names_issue message_is_ascii "
+
+          dispatch_shaped=$(cat <<'FIX'
+          on:
+            workflow_dispatch:
+              inputs:
+                why:
+                  type: string
+            workflow_call:
+              inputs:
+                really:
+                  type: boolean
+          FIX
+          )
+          same "an input under workflow_dispatch is not one" \
+               "$(printf '%s\n' "$dispatch_shaped" | declared_inputs | tr '\n' ' ')" \
+               "really "
+
+          guard_shaped=$(cat <<'FIX'
+          name: Unicode guard
+
+          on:
+            workflow_call:
+
+          permissions:
+            contents: read
+
+          jobs:
+            unicode:
+              runs-on: ubuntu-latest
+              steps:
+                - run: echo hello
+          FIX
+          )
+          same "a workflow declaring no input declares none" \
+               "$(printf '%s\n' "$guard_shaped" | declared_inputs | tr '\n' ' ')" \
+               ""
+
+          commented_shaped=$(cat <<'FIX'
+          on:
+            workflow_call:
+              inputs:
+                real_one:
+                  type: boolean
+          #      commented_out:
+          #        type: boolean
+          FIX
+          )
+          same "a commented-out input is not declared" \
+               "$(printf '%s\n' "$commented_shaped" | declared_inputs | tr '\n' ' ')" \
+               "real_one "
+
+          document=$(cat <<'FIX'
+          Prose above the example.
+
+          ```yaml
+          jobs:
+            hygiene:
+              uses: iderex/wache/.github/workflows/pr-hygiene.yml@abc123 # v9.9.9
+              with:
+                subject_exempt_authors: |
+                  dependabot[bot]@users.noreply.github.com
+                  note: this line is content and carries a colon
+                message_is_ascii: true
+          ```
+
+          Prose below, and a second example with no inputs at all:
+
+          ```yaml
+          uses: iderex/wache/.github/workflows/unicode-guard.yml@def456
+          ```
+          FIX
+          )
+          same "a pin, its file and its keys are read" \
+               "$(printf '%s\n' "$document" | calling_examples README.md | tr '\t' ' ' | tr '\n' '|')" \
+               "USES README.md pr-hygiene.yml abc123|WITH README.md pr-hygiene.yml abc123 subject_exempt_authors|WITH README.md pr-hygiene.yml abc123 message_is_ascii|USES README.md unicode-guard.yml def456|"
+
+          same "a key the ref does not declare is not declared" \
+               "$(declares_key "$(printf 'subject_names_issue\n')" 'message_is_ascii' && echo declared || echo refused)" \
+               "refused"
+          same "a key the ref declares is declared" \
+               "$(declares_key "$(printf 'subject_names_issue\nmessage_is_ascii\n')" 'message_is_ascii' && echo declared || echo refused)" \
+               "declared"
+          same "a ref declaring nothing declares no key" \
+               "$(declares_key "" 'anything' && echo declared || echo refused)" \
+               "refused"
+
+          same "an undeclared key is refused, by name and with its pin" \
+               "$(judged README.md pr-hygiene.yml 113085b269d3437a3f96ff9e7060b64b0af88ab1 "$(printf 'subject_names_issue\n')" 'message_is_ascii')" \
+               "1|::error::README.md passes \`message_is_ascii\` to pr-hygiene.yml at 113085b26, and that ref declares no such input. A board following this example reaches startup_failure with no job and no check run."
+          same "a declared key passes and says so" \
+               "$(judged README.md pr-hygiene.yml 113085b269d3437a3f96ff9e7060b64b0af88ab1 "$(printf 'subject_names_issue\n')" 'subject_names_issue')" \
+               "0|ok    README.md passes subject_names_issue to pr-hygiene.yml@113085b26"
+
+          if [ "$self_test" != "0" ]; then
+            echo "::error::the fixtures failed, so this run judges nothing"
+            exit 1
+          fi
+
+          failed=0
+          examples=0
+          documents=0
+
+          records=$(mktemp)
+          for doc in $(git ls-files '*.md'); do
+            documents=$((documents + 1))
+            calling_examples "$doc" < "$doc" >> "$records"
+          done
+
+          declare -A declared_for=()
+          declare -A resolved=()
+
+          while IFS=$'\t' read -r kind doc file ref key; do
+            [ "$kind" = "USES" ] || continue
+            examples=$((examples + 1))
+            pin="$file@$ref"
+            [ -n "${resolved[$pin]+set}" ] && continue
+
+            if [ -z "$ref" ]; then
+              echo "::error::$doc calls $file with no ref at all. Pin by commit hash."
+              resolved[$pin]=no
+              failed=1
+              continue
+            fi
+            if ! git cat-file -e "${ref}^{commit}" 2>/dev/null; then
+              echo "::error::$doc pins $file at $ref, which is not a commit in this clone, so what that ref declares was not read. Refusing rather than reading the example as checked."
+              resolved[$pin]=no
+              failed=1
+              continue
+            fi
+            if ! body=$(git cat-file -p "${ref}:.github/workflows/$file" 2>/dev/null); then
+              echo "::error::$doc pins $file at ${ref:0:9}, and that commit holds no .github/workflows/$file."
+              resolved[$pin]=no
+              failed=1
+              continue
+            fi
+            resolved[$pin]=yes
+            declared_for[$pin]=$(printf '%s\n' "$body" | declared_inputs)
+            echo "read  $doc -> $file@${ref:0:9} declares: $(printf '%s' "${declared_for[$pin]}" | tr '\n' ' ')"
+          done < "$records"
+
+          while IFS=$'\t' read -r kind doc file ref key; do
+            [ "$kind" = "WITH" ] || continue
+            pin="$file@$ref"
+            [ "${resolved[$pin]:-no}" = "yes" ] || continue
+            judge_key "$doc" "$file" "$ref" "${declared_for[$pin]}" "$key" || failed=1
+          done < "$records"
+
+          echo "examined $examples calling example(s) in $documents tracked document(s)"
+          echo "NOT examined: whether a version comment beside a pin names the tag that ref resolves to, and whether a pin is reachable from main. Both are in reach of this reading and neither is judged here."
+
+          [ "$failed" = "0" ] || exit 1
+          echo "every calling example passes only inputs the ref it pins declares"
