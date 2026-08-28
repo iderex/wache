@@ -78,16 +78,42 @@ on:
       resolve_referenced_numbers:
         description: >-
           Resolve every issue number a commit subject names instead of only
-          matching its shape. THE CALLER MUST GRANT `issues: read` AT THE
-          WORKFLOW LEVEL for this, because a called workflow cannot hold more
-          permission than its caller and every calling example grants
-          `contents: read` alone. Off by default, and a board that adds nothing
-          moves nowhere. With it on, a subject naming a pull request, or a
-          number that does not exist, is refused where the shape match passes
-          it - and a lookup that does not answer is refused too, rather than
-          being read as a number that checked out.
+          matching its shape. TURNING THIS ON TAKES TWO LINES IN THE CALLER, not
+          one: `issues: read` in its `permissions:` block, and the
+          `issue_read_token` secret below carrying its own `GITHUB_TOKEN`. Off
+          by default, and a board that adds nothing moves nowhere. With it on, a
+          subject naming a pull request, or a number that does not exist, is
+          refused where the shape match passes it - and a lookup that does not
+          answer is refused too, rather than being read as a number that checked
+          out.
         type: boolean
         default: false
+        required: false
+    # THE TOKEN ARRIVES AS A SECRET AND NOT AS A JOB PERMISSION, AND THAT IS
+    # MEASURED RATHER THAN PREFERRED. This job first asked for `issues: read` in
+    # its own `permissions:` block, gated behind `if: inputs.resolve_...` so it
+    # would be skipped for every caller that had not asked for it. THAT IS NOT
+    # WHAT HAPPENS. A called workflow cannot hold more permission than its
+    # caller, the comparison is made before any job is created, and the `if:`
+    # never gets a chance to skip anything: this board's own caller, granting
+    # `contents: read` alone and passing no inputs, reached `startup_failure`
+    # with no job and no check run, on run 33193863320 of pull request #43. Every
+    # one of the seventeen boards calling this file grants `contents: read`
+    # alone, so shipping that would have taken the hygiene check off all
+    # seventeen in one merge.
+    #
+    # A secret costs a caller that wants nothing exactly nothing: it is optional,
+    # an absent one arrives empty, and no job here asks for a permission its
+    # caller may not hold.
+    secrets:
+      issue_read_token:
+        description: >-
+          A token that may read issues on the boards a commit subject names.
+          Pass the caller's own `GITHUB_TOKEN` from a workflow whose
+          `permissions:` block grants `issues: read`. Required only when
+          `resolve_referenced_numbers` is on; without it that job refuses rather
+          than passing, because a lookup nothing could make is not a lookup that
+          found nothing wrong.
         required: false
 
 permissions: {}
@@ -389,15 +415,12 @@ jobs:
           [ "$failed" = "0" ] || exit 1
           echo "the body, the title and every commit judged carry what they owe"
 
-  # A SECOND JOB RATHER THAN A SECOND ARM ON THE FIRST, and the reason is the
-  # permission and not tidiness. `issues: read` on the job above would be asked
-  # for on every run of every caller, and a called workflow cannot hold more
-  # than its caller: the seventeen boards that grant `contents: read` alone
-  # would reach startup_failure with no job and no check run. That failure was
-  # measured on this board twice - once when the local caller granted `{}`, and
-  # once on pull request #37 for a pin declaring too few inputs - so it is read
-  # rather than feared. Here the permission is asked for only by a job that runs
-  # only when the caller has turned the input on.
+  # A SECOND JOB RATHER THAN A SECOND ARM ON THE FIRST, so that a caller which
+  # has not turned this on runs nothing extra and sees nothing extra in its
+  # checks list. ITS PERMISSIONS ARE THE SAME AS THE JOB ABOVE, deliberately:
+  # the reading that made this file ask for a permission it does not need is
+  # written at the `issue_read_token` secret above, with the run that produced
+  # it.
   references:
     name: Every referenced number is an issue that exists
     if: ${{ inputs.resolve_referenced_numbers }}
@@ -405,7 +428,6 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      issues: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -418,7 +440,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           THIS_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
+          ISSUE_READ_TOKEN: ${{ secrets.issue_read_token }}
         run: |
           set -euo pipefail
 
@@ -506,11 +528,30 @@ jobs:
             esac
           }
 
-          # Runs the refusal and prints its exit code beside the line it wrote,
-          # so a fixture pins both.
+          # AN ABSENT TOKEN IS ITS OWN REFUSAL AND NOT A QUIET SKIP. A caller
+          # that turned the input on and passed no secret asked for a reading
+          # this job cannot make, and reporting that as a clean run is the same
+          # failure as reading a 500 as a pass - one step earlier.
+          judge_token() {
+            local token=$1
+            if [ -n "$token" ]; then
+              echo "ok    a token reached this job"
+              return 0
+            fi
+            echo "::error::resolve_referenced_numbers is on and no token reached this job. Grant \`issues: read\` in the calling workflow and pass its own GITHUB_TOKEN as the \`issue_read_token\` secret. Refusing rather than reporting a reading nothing could make."
+            return 1
+          }
+
+          # Runs a refusal and prints its exit code beside the line it wrote, so
+          # a fixture pins both.
           judged() {
             local out rc=0
             out=$(judge_reference "$@") || rc=$?
+            printf '%s|%s' "$rc" "$out"
+          }
+          judged_token() {
+            local out rc=0
+            out=$(judge_token "$@") || rc=$?
             printf '%s|%s' "$rc" "$out"
           }
 
@@ -576,10 +617,20 @@ jobs:
                "$(judged 113085b269d3437a3f96ff9e7060b64b0af88ab1 iderex/wache#36 'unanswered 500')" \
                "1|::error::113085b26 names iderex/wache#36 and the lookup did not answer (unanswered 500), so nothing was read. Refusing rather than assuming the number is an issue."
 
+          same "a token that arrived passes and says so" \
+               "$(judged_token 'a-token')" \
+               "0|ok    a token reached this job"
+          same "an absent token is refused, not skipped" \
+               "$(judged_token '')" \
+               "1|::error::resolve_referenced_numbers is on and no token reached this job. Grant \`issues: read\` in the calling workflow and pass its own GITHUB_TOKEN as the \`issue_read_token\` secret. Refusing rather than reporting a reading nothing could make."
+
           if [ "$self_test" != "0" ]; then
             echo "::error::the fixtures failed, so this run judges nothing"
             exit 1
           fi
+
+          judge_token "${ISSUE_READ_TOKEN:-}" || exit 1
+          GH_TOKEN=${ISSUE_READ_TOKEN:-}
 
           body_file=$(mktemp)
           lookup_status=""
