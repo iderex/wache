@@ -199,8 +199,22 @@ change belongs to. It resolves a number. The run prints that line itself.
 NO RELEASED TAG DECLARES THIS INPUT YET, so the pinned examples above do not
 pass it and cannot: this board's `calling-examples.yml` resolves every pin in
 every tracked document and refuses a key the pinned commit does not declare,
-which is exactly the trap it exists for. Read the tags before pinning, as the
-version section below says.
+which is exactly the trap it exists for. Read the tags rather than this
+sentence, because this sentence goes stale the day a release is cut and the
+command does not:
+
+```sh
+for t in $(git ls-remote --tags https://github.com/iderex/wache | grep -v '\^{}' |
+             sed 's#.*refs/tags/##'); do
+  printf '%-8s %s\n' "$t" \
+    "$(gh api "repos/iderex/wache/contents/.github/workflows/pr-hygiene.yml?ref=$t" \
+         --jq '.content' | base64 -d | grep -c '^      resolve_referenced_numbers:')"
+done
+v1.0.0   0
+v1.1.0   0
+v1.2.0   0
+v1.3.0   0
+```
 
 ### The `Scope:` path comparison is decided not to come here
 
