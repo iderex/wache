@@ -183,6 +183,34 @@ jobs:
             jq -r --arg t "$2" '[.[] | select(has("pull_request") | not) | select(.title == $t) | .number] | first // ""' <<< "$1"
           }
 
+          # PAGINATION IS FOLLOWED AND NEVER CONSTRUCTED. This walked the pages
+          # by appending `&page=N`, which the code-scanning and secret-scanning
+          # endpoints accept and the Dependabot one refuses outright:
+          #
+          #   {"message":"Pagination using the `page` parameter is not supported."}
+          #
+          # It answered 400 on 72 of the 73 boards, and 400 is a state rather
+          # than a count, so the sweep read the whole fleet's Dependabot alerts
+          # as unread and said so in its summary instead of reporting them as
+          # zero. That is the reading separation doing its job, and it is also
+          # how the defect was found - by running the sweep over the real roster
+          # rather than over the three kinds it was written against. Following
+          # the `Link` header instead is one route for all three kinds and
+          # constructs no cursor of its own.
+          #
+          # THE PIPELINE ENDS IN `|| true` AND THE FUNCTION IN `return 0`, for
+          # the reason the `references` job on this board already carries: the
+          # last page has no `Link: rel="next"`, `grep` exits 1 on matching
+          # nothing, `set -o pipefail` carries that out, and the caller reads
+          # this into a variable - an assignment whose status IS the
+          # substitution's. Unguarded, the sweep would die on the last page of
+          # the first board it read.
+          next_link() {
+            tr -d '\r' < "$1" | grep -i '^link:' | tr ',' '\n' |
+              sed -n 's/.*<\(https[^>]*\)>; *rel="next".*/\1/p' | head -1 || true
+            return 0
+          }
+
           # ------------------------------------------------------------------
           # Fixtures. Every rule gets a line that bites and a line that passes.
           # ------------------------------------------------------------------
@@ -264,6 +292,19 @@ jobs:
                "$(match_open_issue '[{"number":7,"title":"Something else"}]' 'Open security alerts rose on this board')" \
                ""
 
+          printf 'HTTP/2 200\r\nlink: <https://api.github.com/x?after=AAA>; rel="next", <https://api.github.com/x?after=ZZZ>; rel="last"\r\n\r\n' > "$fx/h1"
+          same "the next page is taken from the header and not built" \
+               "$(next_link "$fx/h1")" \
+               "https://api.github.com/x?after=AAA"
+          printf 'HTTP/2 200\r\nlink: <https://api.github.com/x?before=AAA>; rel="prev", <https://api.github.com/x?page=1>; rel="first"\r\n\r\n' > "$fx/h2"
+          same "a header carrying every relation but next ends the walk" \
+               "$(next_link "$fx/h2")" \
+               ""
+          printf 'HTTP/2 200\r\ncontent-type: application/json\r\n\r\n' > "$fx/h3"
+          same "a response with no link header ends the walk" \
+               "$(next_link "$fx/h3")" \
+               ""
+
           if [ "$self_test" != "0" ]; then
             echo "::error::the fixtures failed, so this run judges nothing"
             exit 1
@@ -274,19 +315,21 @@ jobs:
           # The live reading.
           # ------------------------------------------------------------------
           body=$(mktemp)
+          hdrs=$(mktemp)
           req() {
             # $1 method, $2 url, $3 token, $4 optional payload file. Prints the
-            # status and leaves the body in $body. It never dies, so a refusal is
-            # a state this script judges rather than a step that vanished.
+            # status, leaves the body in $body and the response headers in
+            # $hdrs. It never dies, so a refusal is a state this script judges
+            # rather than a step that vanished.
             local m=$1 url=$2 tok=$3 payload=${4:-} code
             if [ -n "$payload" ]; then
-              code=$(curl -sS -m 45 -o "$body" -w '%{http_code}' -X "$m" \
+              code=$(curl -sS -m 45 -o "$body" -D "$hdrs" -w '%{http_code}' -X "$m" \
                 -H "Accept: application/vnd.github+json" \
                 -H "Authorization: Bearer $tok" \
                 -H "X-GitHub-Api-Version: 2022-11-28" \
                 --data-binary "@$payload" "$url") || code=000
             else
-              code=$(curl -sS -m 45 -o "$body" -w '%{http_code}' -X "$m" \
+              code=$(curl -sS -m 45 -o "$body" -D "$hdrs" -w '%{http_code}' -X "$m" \
                 -H "Accept: application/vnd.github+json" \
                 -H "Authorization: Bearer $tok" \
                 -H "X-GitHub-Api-Version: 2022-11-28" "$url") || code=000
@@ -368,25 +411,25 @@ jobs:
             while IFS=$'\t' read -r board writer; do
               [ -n "$board" ] || continue
               for kind in code-scanning dependabot secret-scanning; do
-                page=1
+                pages=0
                 st=""
+                url="https://api.github.com/repos/$board/$kind/alerts?state=open&per_page=100"
                 counts=$(mktemp)
                 : > "$counts"
-                while : ; do
-                  c=$(req GET "https://api.github.com/repos/$board/$kind/alerts?state=open&per_page=100&page=$page" "$SWEEP_TOKEN")
+                while [ -n "$url" ]; do
+                  c=$(req GET "$url" "$SWEEP_TOKEN")
                   st=$(state_for "$c")
                   [ "$st" = "read" ] || break
-                  n=$(jq 'length' < "$body")
                   case "$kind" in
                     code-scanning)   jq -r '.[] | (.rule.id // "unnamed-rule")' < "$body" >> "$counts" ;;
                     dependabot)      jq -r '.[] | (.security_advisory.ghsa_id // "unnamed-advisory")' < "$body" >> "$counts" ;;
                     secret-scanning) jq -r '.[] | (.secret_type // "unnamed-secret-type")' < "$body" >> "$counts" ;;
                   esac
-                  [ "$n" -eq 100 ] || break
-                  page=$((page + 1))
+                  url=$(next_link "$hdrs")
+                  pages=$((pages + 1))
                   # A TRUNCATED READING IS NOT A READING. Stopping at a cap and
                   # keeping the counts would report the tail as having fallen.
-                  if [ "$page" -gt 20 ]; then
+                  if [ "$pages" -gt 20 ] && [ -n "$url" ]; then
                     st="unread:truncated-above-2000"
                     break
                   fi
