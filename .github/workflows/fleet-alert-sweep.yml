@@ -1,0 +1,656 @@
+# The fleet's security alerts, read on a schedule so that no count grows with
+# nobody watching it.
+#
+# WHAT FORCED IT (iderex/wache#31). Roughly 320 open code-scanning alerts on the
+# Flowfin plugins alone, 62 open Dependabot alerts on one fork, and a two-to-
+# three alert floor on nearly every iderex board - all of it found by a person
+# asking on one evening. Nothing read those numbers before that evening and
+# nothing would have read them after it. A number nobody reads twice cannot rise
+# or fall; it can only be discovered again.
+#
+# WHAT IT DOES. Once a day it reads the open code-scanning, Dependabot and
+# secret-scanning alerts of every board the roster holds, groups them by rule id,
+# compares that reading against the previous one, and where a rule id is new or
+# its count has risen it opens - or updates, never duplicates - one issue on the
+# board the alerts are on. A count that only falls produces nothing.
+#
+# A BOARD THAT COULD NOT BE READ IS NOT A BOARD WITH NO ALERTS, and separating
+# the two is the reason this file is longer than a loop around one endpoint.
+# Scanning is not switched on everywhere. An endpoint that answers 404 because
+# the feature is off, 403 because the token does not reach that board, and 200
+# with an empty array are three different facts, and a sweep that folds them
+# together reports a clean fleet it never measured. So a reading carries a
+# per-board, per-kind STATE beside its counts, a pair that was not read
+# contributes no counts at all, and the pair is named in the run summary as
+# unread rather than passed over.
+#
+# THE COMPARISON NEVER RAISES OFF A PAIR IT HAS NOT READ TWICE. A board read
+# today and unread yesterday is a FIRST READING: every rule id on it is new to
+# the file and none of them is new to the board, so raising an issue for each
+# would file the loudest issue of the year for a change that did not happen. The
+# fixtures below carry that case by name, in both directions.
+#
+# WHERE THE PREVIOUS READING LIVES. In the artifact of the last successful run of
+# this workflow, read back through the runs API. That is a deliberate choice over
+# a file on a branch: the run history is already the audit trail of a scheduled
+# job, each reading is downloadable by run number afterwards, and the sweep needs
+# no write to any tree to keep its own state. What it costs is retention - an
+# artifact expires, and a sweep that has not run inside the retention window
+# starts again from a first reading rather than from a delta. That is stated here
+# rather than discovered later.
+#
+# WHY THE ROSTER IS FETCHED AND NOT LISTED HERE. The boards are declared in one
+# private tree, one record per board, and a list copied into this file would
+# drift against it silently - a board added to the roster and not to this file is
+# a board this sweep reports nothing about while looking as though it covered the
+# fleet. So the roster is read at run time, and a roster that cannot be read reds
+# the run instead of shrinking the population.
+#
+# THE MEANS IS THE SHELL AND THE PLATFORM API, as it is in every other check on
+# this board. It adds no language, no runtime and no dependency this tree does
+# not already carry; every figure it prints comes from a request a reader can
+# repeat with `curl`; and its judgement is a pure function of two files, which is
+# what lets the fixtures below refuse it before it is allowed to judge anything.
+#
+# THE FIXTURES RUN BEFORE THE JUDGEMENT, in the shape the rest of this board
+# uses: every rule has a line that bites and a line that passes, and if a fixture
+# disagrees with the rule it is meant to prove the run judges nothing.
+name: Fleet alert sweep
+
+on:
+  schedule:
+    # Daily. A scheduled run fires only from the default branch, may be delayed
+    # under load, and is switched off by the platform after sixty days without
+    # repository activity. None of the three is something this file can refuse.
+    - cron: '45 11 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Read and report, and write to no tracker'
+        type: boolean
+        default: true
+      boards:
+        description: 'Restrict the sweep to these boards, owner/name, comma separated. Empty means the whole roster.'
+        type: string
+        default: ''
+      seed_baseline:
+        description: 'PROOF ONLY. A reading in the wire format, used in place of the previous run''s artifact. Tabs written as \t.'
+        type: string
+        default: ''
+      seed_today:
+        description: 'PROOF ONLY. A reading in the wire format, used in place of the live one. A seeded run reads no board and keeps no artifact.'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  # Two sweeps at once would file the same issue twice, which is the one thing
+  # this file promises not to do. They queue rather than cancelling: a cancelled
+  # sweep keeps no reading, and the next one would compare against a stale day.
+  group: fleet-alert-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Read every board, raise only what rose
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Judge the fixtures, then the fleet
+        env:
+          SWEEP_TOKEN: ${{ secrets.FLEET_SWEEP_TOKEN }}
+          RUNS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          THIS_REPO: ${{ github.repository }}
+          THIS_RUN: ${{ github.run_id }}
+          WORKFLOW_FILE: fleet-alert-sweep.yml
+          ROSTER_REPO: iderex/operations
+          ROSTER_PATH: store/repo
+          DRY_RUN: ${{ inputs.dry_run }}
+          ONLY_BOARDS: ${{ inputs.boards }}
+          SEED_BASELINE: ${{ inputs.seed_baseline }}
+          SEED_TODAY: ${{ inputs.seed_today }}
+          ISSUE_TITLE: 'Open security alerts rose on this board'
+        run: |
+          set -euo pipefail
+
+          # ------------------------------------------------------------------
+          # The wire format, which is the whole state this sweep keeps.
+          #
+          #   S <TAB> board <TAB> kind <TAB> state
+          #   A <TAB> board <TAB> kind <TAB> rule <TAB> count
+          #
+          # `state` is `read` or `unread:<reason>`. An `A` line exists only under
+          # a `read` state, so a pair that was not read carries no counts and can
+          # neither rise nor fall. That is the invariant the comparison rests on,
+          # and the fixtures pin it.
+          # ------------------------------------------------------------------
+
+          # A REASON RATHER THAN A ZERO. Every non-200 becomes a state and the
+          # status code survives into it, because 403 and 404 are different facts
+          # about a board and folding them loses the one a reader needs.
+          state_for() {
+            case "$1" in
+              200) printf 'read\n' ;;
+              *)   printf 'unread:%s\n' "$1" ;;
+            esac
+          }
+
+          # THE JUDGEMENT, and the only place a decision to raise is taken. It is
+          # a pure function of two files so that the fixtures can refuse it.
+          #
+          # THE FILE IS TOLD APART BY NAME AND NOT BY `FNR == NR`, which is the
+          # idiom this was written with and which is wrong for exactly the case
+          # that matters most here. `FNR == NR` holds for every record of the
+          # second file when the first one is EMPTY, so the very first sweep -
+          # no baseline at all - read today's reading as its own baseline and
+          # raised nothing, forever, in silence. The fixture below carries that
+          # case and refused this function until the comparison moved to
+          # `FILENAME`.
+          deltas() {
+            awk -F'\t' -v basefile="$1" '
+              FILENAME == basefile {
+                if ($1 == "S") bs[$2 FS $3] = $4
+                else if ($1 == "A") bc[$2 FS $3 FS $4] = $5
+                next
+              }
+              $1 == "S" { next }
+              $1 == "A" {
+                board = $2; kind = $3; rule = $4; now = $5 + 0
+                pair = board FS kind
+                # A pair read for the first time is recorded, never raised. Every
+                # rule on it is new to this file and none is new to the board.
+                if (bs[pair] != "read") { first[pair] = 1; next }
+                was = bc[board FS kind FS rule] + 0
+                if (was == 0) print board "\t" kind "\t" rule "\t0\t" now "\tnew"
+                else if (now > was) print board "\t" kind "\t" rule "\t" was "\t" now "\trose"
+                next
+              }
+              END {
+                for (p in first) { split(p, a, FS); print a[1] "\t" a[2] "\t-\t-\t-\tfirst-reading" }
+              }
+            ' "$1" "$2" | LC_ALL=C sort
+          }
+
+          # The dedup key is the title, so a title that does not survive a round
+          # trip through the tracker would file a second issue every day.
+          match_open_issue() {
+            jq -r --arg t "$2" '[.[] | select(has("pull_request") | not) | select(.title == $t) | .number] | first // ""' <<< "$1"
+          }
+
+          # PAGINATION IS FOLLOWED AND NEVER CONSTRUCTED. This walked the pages
+          # by appending `&page=N`, which the code-scanning and secret-scanning
+          # endpoints accept and the Dependabot one refuses outright:
+          #
+          #   {"message":"Pagination using the `page` parameter is not supported."}
+          #
+          # It answered 400 on 72 of the 73 boards, and 400 is a state rather
+          # than a count, so the sweep read the whole fleet's Dependabot alerts
+          # as unread and said so in its summary instead of reporting them as
+          # zero. That is the reading separation doing its job, and it is also
+          # how the defect was found - by running the sweep over the real roster
+          # rather than over the three kinds it was written against. Following
+          # the `Link` header instead is one route for all three kinds and
+          # constructs no cursor of its own.
+          #
+          # THE PIPELINE ENDS IN `|| true` AND THE FUNCTION IN `return 0`, for
+          # the reason the `references` job on this board already carries: the
+          # last page has no `Link: rel="next"`, `grep` exits 1 on matching
+          # nothing, `set -o pipefail` carries that out, and the caller reads
+          # this into a variable - an assignment whose status IS the
+          # substitution's. Unguarded, the sweep would die on the last page of
+          # the first board it read.
+          next_link() {
+            tr -d '\r' < "$1" | grep -i '^link:' | tr ',' '\n' |
+              sed -n 's/.*<\(https[^>]*\)>; *rel="next".*/\1/p' | head -1 || true
+            return 0
+          }
+
+          # ------------------------------------------------------------------
+          # Fixtures. Every rule gets a line that bites and a line that passes.
+          # ------------------------------------------------------------------
+          self_test=0
+          same() {
+            if [ "$2" = "$3" ]; then
+              echo "fixture ok     $1"
+            else
+              echo "FIXTURE FAILED $1: wanted [$3], got [$2]"
+              self_test=1
+            fi
+          }
+
+          fx=$(mktemp -d)
+          judged() { deltas "$fx/base" "$fx/today"; }
+
+          same "a 200 is a reading" "$(state_for 200)" "read"
+          same "a 404 is not a zero" "$(state_for 404)" "unread:404"
+          same "a 403 keeps its own code" "$(state_for 403)" "unread:403"
+          same "a request that never answered keeps its own code" "$(state_for 000)" "unread:000"
+
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t3\n' > "$fx/base"
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t3\nA\tiderex/a\tcode-scanning\tr2\t1\n' > "$fx/today"
+          same "a rule id the previous reading did not hold is raised" \
+               "$(judged)" \
+               "$(printf 'iderex/a\tcode-scanning\tr2\t0\t1\tnew')"
+
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t3\n' > "$fx/base"
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t5\n' > "$fx/today"
+          same "a count that rose is raised, with both ends of the move" \
+               "$(judged)" \
+               "$(printf 'iderex/a\tcode-scanning\tr1\t3\t5\trose')"
+
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t5\n' > "$fx/base"
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t3\n' > "$fx/today"
+          same "a count that fell is not an issue" "$(judged)" ""
+
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t5\n' > "$fx/base"
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t5\n' > "$fx/today"
+          same "a count that stood still is not an issue" "$(judged)" ""
+
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t5\n' > "$fx/base"
+          printf 'S\tiderex/a\tcode-scanning\tread\n' > "$fx/today"
+          same "a rule that has gone is not an issue" "$(judged)" ""
+
+          # THE FLOOD CASE. A board read today and unread yesterday would look
+          # like every one of its rules arriving at once.
+          printf 'S\tiderex/a\tcode-scanning\tunread:404\n' > "$fx/base"
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t9\nA\tiderex/a\tcode-scanning\tr2\t4\n' > "$fx/today"
+          same "a pair read for the first time is recorded, not raised" \
+               "$(judged)" \
+               "$(printf 'iderex/a\tcode-scanning\t-\t-\t-\tfirst-reading')"
+
+          printf '' > "$fx/base"
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t9\n' > "$fx/today"
+          same "a board the previous reading never held is a first reading" \
+               "$(judged)" \
+               "$(printf 'iderex/a\tcode-scanning\t-\t-\t-\tfirst-reading')"
+
+          # THE OTHER DIRECTION OF THE SAME TRAP. A board that stopped being
+          # readable must not read as a fall to zero.
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t9\n' > "$fx/base"
+          printf 'S\tiderex/a\tcode-scanning\tunread:403\n' > "$fx/today"
+          same "a pair that stopped being readable raises nothing" "$(judged)" ""
+
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t1\n' > "$fx/base"
+          printf 'S\tiderex/a\tcode-scanning\tread\nA\tiderex/a\tcode-scanning\tr1\t2\nS\tiderex/b\tdependabot\tread\nA\tiderex/b\tdependabot\tGHSA-x\t1\n' > "$fx/today"
+          same "one board rising does not carry another board's first reading" \
+               "$(judged)" \
+               "$(printf 'iderex/a\tcode-scanning\tr1\t1\t2\trose\niderex/b\tdependabot\t-\t-\t-\tfirst-reading')"
+
+          same "an open issue with that title is found" \
+               "$(match_open_issue '[{"number":7,"title":"Open security alerts rose on this board"}]' 'Open security alerts rose on this board')" \
+               "7"
+          same "a pull request with the same title is not an issue" \
+               "$(match_open_issue '[{"number":7,"title":"Open security alerts rose on this board","pull_request":{}}]' 'Open security alerts rose on this board')" \
+               ""
+          same "a different title is not a match" \
+               "$(match_open_issue '[{"number":7,"title":"Something else"}]' 'Open security alerts rose on this board')" \
+               ""
+
+          printf 'HTTP/2 200\r\nlink: <https://api.github.com/x?after=AAA>; rel="next", <https://api.github.com/x?after=ZZZ>; rel="last"\r\n\r\n' > "$fx/h1"
+          same "the next page is taken from the header and not built" \
+               "$(next_link "$fx/h1")" \
+               "https://api.github.com/x?after=AAA"
+          printf 'HTTP/2 200\r\nlink: <https://api.github.com/x?before=AAA>; rel="prev", <https://api.github.com/x?page=1>; rel="first"\r\n\r\n' > "$fx/h2"
+          same "a header carrying every relation but next ends the walk" \
+               "$(next_link "$fx/h2")" \
+               ""
+          printf 'HTTP/2 200\r\ncontent-type: application/json\r\n\r\n' > "$fx/h3"
+          same "a response with no link header ends the walk" \
+               "$(next_link "$fx/h3")" \
+               ""
+
+          if [ "$self_test" != "0" ]; then
+            echo "::error::the fixtures failed, so this run judges nothing"
+            exit 1
+          fi
+          echo "---- fixtures pass; the sweep may now judge ----"
+
+          # ------------------------------------------------------------------
+          # The live reading.
+          # ------------------------------------------------------------------
+          body=$(mktemp)
+          hdrs=$(mktemp)
+          req() {
+            # $1 method, $2 url, $3 token, $4 optional payload file. Prints the
+            # status, leaves the body in $body and the response headers in
+            # $hdrs. It never dies, so a refusal is a state this script judges
+            # rather than a step that vanished.
+            local m=$1 url=$2 tok=$3 payload=${4:-} code
+            if [ -n "$payload" ]; then
+              code=$(curl -sS -m 45 -o "$body" -D "$hdrs" -w '%{http_code}' -X "$m" \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $tok" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                --data-binary "@$payload" "$url") || code=000
+            else
+              code=$(curl -sS -m 45 -o "$body" -D "$hdrs" -w '%{http_code}' -X "$m" \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $tok" \
+                -H "X-GitHub-Api-Version: 2022-11-28" "$url") || code=000
+            fi
+            printf '%s' "$code"
+          }
+
+          if [ -z "${SWEEP_TOKEN:-}" ]; then
+            echo "::error::no FLEET_SWEEP_TOKEN reached this job. This sweep reads other boards' security alerts and files issues on them, and neither is reachable with the token a run here is minted with. Refusing rather than reporting a fleet it could not read."
+            exit 1
+          fi
+
+          today=$(mktemp)
+          baseline=$(mktemp)
+          # THE ROSTER IS ACCUMULATED IN A FILE AND NOT IN A VARIABLE. Appending
+          # with `v=$(printf '%s...' "$v" ...)` drops the trailing newline on
+          # every round, because that is what command substitution does, so the
+          # second board is glued to the first and the sweep addresses one repo
+          # named after two. It did, on the first local run of this loop.
+          boardsfile=$(mktemp)
+          : > "$today"
+          : > "$baseline"
+          : > "$boardsfile"
+          seeded=0
+          if [ -n "${SEED_TODAY:-}" ]; then
+            seeded=1
+            printf '%s\n' "$SEED_TODAY" | sed -e 's/\\t/\t/g' | grep -v '^$' > "$today" || true
+            printf '%s\n' "${SEED_BASELINE:-}" | sed -e 's/\\t/\t/g' | grep -v '^$' > "$baseline" || true
+            echo "SEEDED RUN. No board is read and no reading is kept. $(wc -l < "$today") line(s) of today against $(wc -l < "$baseline") line(s) of baseline."
+          fi
+
+          if [ "$seeded" = "0" ]; then
+            # -------- the roster --------
+            code=$(req GET "https://api.github.com/repos/$ROSTER_REPO/contents/$ROSTER_PATH" "$SWEEP_TOKEN")
+            if [ "$code" != "200" ]; then
+              echo "::error::the roster at $ROSTER_REPO/$ROSTER_PATH answered $code, so the population of this sweep is unknown. Refusing rather than sweeping whatever subset happened to be reachable."
+              head -c 400 "$body"; echo
+              exit 1
+            fi
+            records=$(jq -r '.[] | select(.type == "file") | select(.name | endswith(".md")) | select(.name != "README.md") | .path' < "$body")
+            while IFS= read -r rec; do
+              [ -n "$rec" ] || continue
+              c=$(curl -sS -m 45 -o "$body" -w '%{http_code}' \
+                    -H "Accept: application/vnd.github.raw" \
+                    -H "Authorization: Bearer $SWEEP_TOKEN" \
+                    -H "X-GitHub-Api-Version: 2022-11-28" \
+                    "https://api.github.com/repos/$ROSTER_REPO/contents/$rec") || c=000
+              if [ "$c" != "200" ]; then
+                echo "::error::the roster record $rec answered $c, so the population is incomplete. Refusing."
+                exit 1
+              fi
+              owner=$(grep -m1 '^Owner: ' "$body" | sed 's/^Owner: //' | tr -d '\r' || true)
+              name=$(grep -m1 '^Id: ' "$body" | sed 's/^Id: //' | tr -d '\r' || true)
+              writer=$(grep -m1 '^Writers: ' "$body" | sed 's/^Writers: //' | tr -d '\r' | cut -d, -f1 || true)
+              if [ -z "$owner" ] || [ -z "$name" ]; then
+                echo "::error::the roster record $rec declares no Owner or no Id, so the board it names cannot be addressed. Refusing."
+                exit 1
+              fi
+              printf '%s/%s\t%s\n' "$owner" "$name" "${writer:-$owner}" >> "$boardsfile"
+            done <<< "$records"
+            echo "roster: $(grep -c . "$boardsfile") board(s) read from $ROSTER_REPO/$ROSTER_PATH"
+
+            if [ -n "${ONLY_BOARDS:-}" ]; then
+              keep=$(printf '%s' "$ONLY_BOARDS" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | grep -v '^$')
+              kept=$(mktemp)
+              awk -F'\t' -v k="$keep" '
+                BEGIN { n = split(k, a, "\n"); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+                $1 in want' "$boardsfile" > "$kept"
+              mv "$kept" "$boardsfile"
+              echo "restricted to $(grep -c . "$boardsfile") board(s) by the boards input"
+              if [ ! -s "$boardsfile" ]; then
+                echo "::error::the boards input named nothing the roster holds, so this run would sweep an empty population and report a quiet fleet. Refusing."
+                exit 1
+              fi
+            fi
+
+            # -------- the alerts --------
+            unread_pairs=0
+            while IFS=$'\t' read -r board writer; do
+              [ -n "$board" ] || continue
+              for kind in code-scanning dependabot secret-scanning; do
+                pages=0
+                st=""
+                url="https://api.github.com/repos/$board/$kind/alerts?state=open&per_page=100"
+                counts=$(mktemp)
+                : > "$counts"
+                while [ -n "$url" ]; do
+                  c=$(req GET "$url" "$SWEEP_TOKEN")
+                  st=$(state_for "$c")
+                  [ "$st" = "read" ] || break
+                  case "$kind" in
+                    code-scanning)   jq -r '.[] | (.rule.id // "unnamed-rule")' < "$body" >> "$counts" ;;
+                    dependabot)      jq -r '.[] | (.security_advisory.ghsa_id // "unnamed-advisory")' < "$body" >> "$counts" ;;
+                    secret-scanning) jq -r '.[] | (.secret_type // "unnamed-secret-type")' < "$body" >> "$counts" ;;
+                  esac
+                  url=$(next_link "$hdrs")
+                  pages=$((pages + 1))
+                  # A TRUNCATED READING IS NOT A READING. Stopping at a cap and
+                  # keeping the counts would report the tail as having fallen.
+                  if [ "$pages" -gt 20 ] && [ -n "$url" ]; then
+                    st="unread:truncated-above-2000"
+                    break
+                  fi
+                done
+                printf 'S\t%s\t%s\t%s\n' "$board" "$kind" "$st" >> "$today"
+                if [ "$st" = "read" ]; then
+                  LC_ALL=C sort "$counts" | uniq -c |
+                    awk -v b="$board" -v k="$kind" '{ c = $1; $1 = ""; sub(/^ /, ""); print "A\t" b "\t" k "\t" $0 "\t" c }' >> "$today"
+                else
+                  unread_pairs=$((unread_pairs + 1))
+                fi
+                rm -f "$counts"
+              done
+            done < "$boardsfile"
+            echo "reading: $(grep -c '^A' "$today" || true) rule line(s) over $(grep -c '^S' "$today" || true) pair(s), $unread_pairs of them unread"
+
+            # -------- the previous reading --------
+            prev_run=""
+            c=$(req GET "https://api.github.com/repos/$THIS_REPO/actions/workflows/$WORKFLOW_FILE/runs?status=success&per_page=50" "$RUNS_TOKEN")
+            if [ "$c" != "200" ]; then
+              c=$(req GET "https://api.github.com/repos/$THIS_REPO/actions/workflows/$WORKFLOW_FILE/runs?status=success&per_page=50" "$SWEEP_TOKEN")
+            fi
+            if [ "$c" != "200" ]; then
+              echo "::error::the run history of this workflow answered $c, so the previous reading cannot be reached. A sweep that cannot read its own baseline reports every rule as first-seen forever, which is silence wearing the clothes of a clean fleet. Refusing."
+              exit 1
+            fi
+            runs=$(jq -r --arg me "$THIS_RUN" '[.workflow_runs[] | select((.id | tostring) != $me) | .id] | .[]' < "$body" || true)
+            art_url=""
+            while IFS= read -r rid; do
+              [ -n "$rid" ] || continue
+              c=$(req GET "https://api.github.com/repos/$THIS_REPO/actions/runs/$rid/artifacts" "$RUNS_TOKEN")
+              [ "$c" = "200" ] || c=$(req GET "https://api.github.com/repos/$THIS_REPO/actions/runs/$rid/artifacts" "$SWEEP_TOKEN")
+              [ "$c" = "200" ] || continue
+              art_url=$(jq -r '[.artifacts[] | select(.name == "alert-reading") | select(.expired | not) | .archive_download_url] | first // ""' < "$body")
+              if [ -n "$art_url" ]; then prev_run=$rid; break; fi
+            done <<< "$runs"
+
+            if [ -z "$art_url" ]; then
+              echo "no previous reading is reachable, so this run is a first reading over the whole population and raises nothing"
+            else
+              zip=$(mktemp)
+              c=$(curl -sSL -m 120 -o "$zip" -w '%{http_code}' \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "Authorization: Bearer $RUNS_TOKEN" "$art_url") || c=000
+              if [ "$c" != "200" ]; then
+                c=$(curl -sSL -m 120 -o "$zip" -w '%{http_code}' \
+                      -H "Accept: application/vnd.github+json" \
+                      -H "Authorization: Bearer $SWEEP_TOKEN" "$art_url") || c=000
+              fi
+              if [ "$c" != "200" ]; then
+                echo "::error::the previous reading, run $prev_run, answered $c on download. Refusing rather than comparing against nothing and calling the result a first reading."
+                exit 1
+              fi
+              unzip -p "$zip" reading.tsv > "$baseline"
+              echo "baseline: run $prev_run, $(grep -c '^A' "$baseline" || true) rule line(s)"
+            fi
+          fi
+
+          cp "$today" reading.tsv
+
+          # ------------------------------------------------------------------
+          # The judgement.
+          # ------------------------------------------------------------------
+          moves=$(mktemp)
+          deltas "$baseline" "$today" > "$moves"
+          risen=$(awk -F'\t' '$6 != "first-reading"' "$moves" || true)
+          firsts=$(awk -F'\t' '$6 == "first-reading"' "$moves" || true)
+          echo "judgement: $(printf '%s\n' "$risen" | grep -c .) rule(s) new or risen, $(printf '%s\n' "$firsts" | grep -c .) pair(s) read for the first time"
+
+          {
+            echo "## Fleet alert sweep"
+            echo
+            if [ "$seeded" = "1" ]; then echo "**Seeded run.** No board was read and no reading was kept."; echo; fi
+            echo "| board | kind | rule | was | now |"
+            echo "| --- | --- | --- | --- | --- |"
+            if [ -n "$risen" ]; then
+              printf '%s\n' "$risen" | awk -F'\t' '{ print "| " $1 " | " $2 " | `" $3 "` | " $4 " | " $5 " |" }'
+            else
+              echo "| _nothing rose_ | | | | |"
+            fi
+            echo
+            echo "Pairs not read on this run, which are not pairs with no alerts:"
+            echo
+            if awk -F'\t' '$1 == "S" && $4 != "read"' "$today" | grep -q .; then
+              echo '```'
+              awk -F'\t' '$1 == "S" && $4 != "read" { print $2 "  " $3 "  " $4 }' "$today"
+              echo '```'
+            else
+              echo "none."
+            fi
+            echo
+            echo "Pairs read for the first time, recorded and deliberately not raised:"
+            echo
+            if [ -n "$firsts" ]; then
+              echo '```'
+              printf '%s\n' "$firsts" | awk -F'\t' '{ print $1 "  " $2 }'
+              echo '```'
+            else
+              echo "none."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "seeded=$seeded" >> "$GITHUB_ENV"
+
+          if [ -z "$risen" ]; then
+            echo "nothing rose, so nothing is filed"
+            exit 0
+          fi
+
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            echo "dry run: the moves below are reported and no tracker is written"
+            printf '%s\n' "$risen"
+            exit 0
+          fi
+
+          # ------------------------------------------------------------------
+          # The filing. One issue per board, opened or updated, never a second.
+          # ------------------------------------------------------------------
+          filed=0
+          updated=0
+          failed=0
+          for board in $(printf '%s\n' "$risen" | cut -f1 | LC_ALL=C sort -u); do
+            writer=$(awk -F'\t' -v b="$board" '$1 == b { print $2; exit }' "$boardsfile")
+            [ -n "$writer" ] || writer=iderex
+            rows=$(printf '%s\n' "$risen" | awk -F'\t' -v b="$board" '$1 == b')
+
+            md=$(mktemp)
+            {
+              echo "Open security alerts on this board are higher than they were at the previous reading, or carry a rule id that reading did not hold."
+              echo
+              echo "| kind | rule | was | now |"
+              echo "| --- | --- | --- | --- |"
+              printf '%s\n' "$rows" | awk -F'\t' '{ print "| " $2 " | `" $3 "` | " $4 " | " $5 " |" }'
+              echo
+              echo "Every row is a count of open alerts grouped by rule id. The current state is read directly:"
+              echo
+              echo '```'
+              for k in $(printf '%s\n' "$rows" | cut -f2 | LC_ALL=C sort -u); do
+                echo "gh api \"repos/$board/$k/alerts?state=open&per_page=100\" --jq 'length'"
+              done
+              echo '```'
+              echo
+              echo "## What this is not"
+              echo
+              echo "It is not a judgement of any alert. Nothing here reads a finding, weighs it, or says whether it is a true positive; the reading is a count of what the platform reports as open, grouped by rule id."
+              echo
+              echo "A count that falls produces no issue and no comment, so this body going quiet is not evidence that anything was fixed."
+              echo
+              echo "A kind that could not be read on a run contributes no count on that run and is named in that run's summary rather than passed over as a zero."
+              echo
+              echo "The sweep behind this is \`.github/workflows/fleet-alert-sweep.yml\` in \`iderex/wache\`, asked for by \`iderex/wache#31\`."
+            } > "$md"
+
+            payload=$(mktemp)
+            code=$(req GET "https://api.github.com/repos/$board/issues?state=open&per_page=100" "$SWEEP_TOKEN")
+            if [ "$code" != "200" ]; then
+              echo "::warning::the open issues of $board answered $code, so whether that board already carries this issue is unknown. Nothing is filed there, because a sweep that cannot check for a duplicate must not create one."
+              failed=$((failed + 1))
+              continue
+            fi
+            existing=$(match_open_issue "$(cat "$body")" "$ISSUE_TITLE")
+
+            if [ -n "$existing" ]; then
+              jq -n --rawfile b "$md" '{body: $b}' > "$payload"
+              code=$(req PATCH "https://api.github.com/repos/$board/issues/$existing" "$SWEEP_TOKEN" "$payload")
+              if [ "$code" != "200" ]; then
+                echo "::warning::updating $board#$existing answered $code"
+                failed=$((failed + 1)); continue
+              fi
+              jq -n --rawfile b "$md" '{body: $b}' > "$payload"
+              code=$(req POST "https://api.github.com/repos/$board/issues/$existing/comments" "$SWEEP_TOKEN" "$payload")
+              [ "$code" = "201" ] || echo "::warning::commenting on $board#$existing answered $code"
+              echo "updated  $board#$existing"
+              updated=$((updated + 1))
+            else
+              jq -n --arg t "$ISSUE_TITLE" --arg a "$writer" --rawfile b "$md" \
+                 '{title: $t, body: $b, assignees: [$a]}' > "$payload"
+              code=$(req POST "https://api.github.com/repos/$board/issues" "$SWEEP_TOKEN" "$payload")
+              if [ "$code" != "201" ]; then
+                echo "::warning::opening an issue on $board answered $code"
+                head -c 300 "$body"; echo
+                failed=$((failed + 1)); continue
+              fi
+              num=$(jq -r '.number' < "$body")
+              echo "opened   $board#$num"
+              filed=$((filed + 1))
+              # A LABEL IS ADDED ONLY WHERE THE BOARD ALREADY HOLDS IT. Passing a
+              # label a board does not hold creates it, and this sweep does not
+              # get to invent a vocabulary on somebody else's tracker.
+              lc=$(req GET "https://api.github.com/repos/$board/labels/security" "$SWEEP_TOKEN")
+              if [ "$lc" = "200" ]; then
+                printf '{"labels":["security"]}' > "$payload"
+                code=$(req POST "https://api.github.com/repos/$board/issues/$num/labels" "$SWEEP_TOKEN" "$payload")
+                [ "$code" = "200" ] || echo "::warning::labelling $board#$num answered $code"
+              else
+                echo "::warning::$board holds no \`security\` label, so $board#$num carries none, and no label is created on another board's tracker from here."
+              fi
+              echo "::warning::$board#$num carries no milestone. The milestones of another board are that board's own and this sweep does not choose one."
+            fi
+            rm -f "$md" "$payload"
+          done
+
+          echo "filed $filed issue(s), updated $updated, and $failed board(s) could not be written"
+          [ "$failed" = "0" ] || exit 1
+
+      - name: Keep this reading for the next run
+        # A SEEDED RUN KEEPS NOTHING. Its reading is an argument to a proof, and
+        # keeping it would make it the next run's baseline - which is how a proof
+        # poisons the thing it was proving.
+        #
+        # A FAILED RUN KEEPS NOTHING EITHER, which is `success()` rather than
+        # `always()` and is the safe direction of a wrong guess. A run whose
+        # filing failed halfway would otherwise hand the rises it did not manage
+        # to file to the next run as the baseline they were measured against, and
+        # they would never be raised again. Dropping the reading instead costs a
+        # repeated comparison, and the repeat finds the issue it already opened
+        # and updates it.
+        if: ${{ success() && env.seeded == '0' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: alert-reading
+          path: reading.tsv
+          retention-days: 90
+          if-no-files-found: error
