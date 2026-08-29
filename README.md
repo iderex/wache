@@ -37,6 +37,12 @@ leading comment. This board measures drift and writes into no other tree. The
 reading, the copy contract and the drift test are
 [`docs/dependabot-across-the-boards.md`](docs/dependabot-across-the-boards.md).
 
+THIS BOARD IS ALSO THE FIRST COPY, for the same reason it is the first caller of
+the check it holds: a contract nobody has executed is a paragraph.
+`.github/dependabot.yml` here carries the two contract lines and is the run in
+which `taken-at` first resolved to a commit instead of the canonical side being
+supplied by hand.
+
 `docs/standardisation-survey.md` is the reading behind what comes here next: what
 the boards hold more than once, how far the copies have drifted, and the shapes
 standardisation could take. It ends in a decision request rather than in an
