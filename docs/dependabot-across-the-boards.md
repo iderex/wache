@@ -143,8 +143,8 @@ git show "$taken_at:templates/dependabot.yml" | block | diff - <(block < copy.ym
 ```
 
 Run against the nine boards that carry the file, with the canonical side taken
-from `templates/dependabot.yml` as this change proposes it, because no copy
-names an origin yet and there is nothing to resolve `$taken_at` to:
+from `templates/dependabot.yml` by hand, because not one of the nine names an
+origin and there is nothing to resolve `$taken_at` to on any of them:
 
     Flowfin/jellyfin-plugin-invites            19 differing line(s)
     Flowfin/jellyfin-plugin-sso                14
@@ -161,6 +161,12 @@ surprise: none of these boards has ever been shown this file. The presence
 reading was re-run at the same time and still returns 64 absent, nine present,
 nine distinct blob ids.
 
+THAT PARAGRAPH ONCE SAID NO COPY ANYWHERE NAMED AN ORIGIN, AND IT SAID IT OF THE
+WHOLE ROSTER RATHER THAN OF THE NINE. One does now, and it is the section below.
+The nine are still nine, so the sentence above is narrowed rather than deleted:
+the hand-supplied canonical side is what a board that names no origin costs, and
+it is not what the test does when a board names one.
+
 WHAT THIS TEST CANNOT DO, and it is a floor rather than a measurement of
 meaning. It compares BYTES. A copy that differs only in quoting, in key order or
 in a `day:` and `time:` beside the interval is reported as drifted, and the
@@ -173,6 +179,71 @@ more detail than the canonical block does, and every one of those lines counts:
 
 A comparison that judged meaning would need a YAML parser, which is a means this
 board does not carry today and is not added here for a reading.
+
+## The first copy, and the first run in which `taken-at` resolved
+
+This board carries `.github/dependabot.yml` from this change. It is the first
+copy of the template anywhere, and until it existed the drift test had never
+been run the way it is written: every run above supplied the canonical side by
+hand, because no board named a commit to resolve.
+
+The two contract lines it carries:
+
+    sed -n 's/^#   \(origin\|taken-at\): *//p' .github/dependabot.yml
+    iderex/wache templates/dependabot.yml
+    a637780d22d9472988fc5c330643de63b4e5e68a
+
+`a637780` is the mainline this copy was taken from, and it carries
+`templates/dependabot.yml`, so the test resolves it rather than being handed a
+file:
+
+    taken_at=$(sed -n 's/^#   taken-at: *//p' .github/dependabot.yml)
+    git show "$taken_at:templates/dependabot.yml" | block | diff - <(block < .github/dependabot.yml)
+    diff exit=0
+
+No differing line. That is the whole verdict for a copy that is up to date, and
+it is the reading this page could not produce before.
+
+THE TEST IS SHOWN BITING RATHER THAN PASSING, because a comparison that has only
+ever returned agreement proves nothing about what it would refuse. Three
+near-misses against the same copy, each one a change somebody would actually
+make:
+
+    # one value moved
+    sed 's/interval: weekly/interval: daily/' .github/dependabot.yml > drifted.yml
+    git show "$taken_at:templates/dependabot.yml" | block | diff - <(block < drifted.yml)
+    4c4
+    <       interval: weekly
+    ---
+    >       interval: daily
+    diff exit=1
+
+    # the taken-at line removed
+    grep -v '^#   taken-at:' .github/dependabot.yml > unmarked.yml
+    sed -n 's/^#   taken-at: *//p' unmarked.yml
+    (empty - there is nothing to resolve, so this copy is not judged at all)
+
+    # the leading comment rewritten and the block untouched
+    sed 's/^# THIS BOARD.S COPY.*/# A DIFFERENT HEADING ENTIRELY./' .github/dependabot.yml > recommented.yml
+    git show "$taken_at:templates/dependabot.yml" | block | diff - <(block < recommented.yml)
+    diff exit=0
+
+So a moved value is drift, a rewritten comment is not, and a copy that names no
+commit is the third state this page has been claiming since the contract was
+written: not up to date, not drifted, unjudged.
+
+WHAT THIS COPY IS NOT IS THE ROLLOUT. The presence reading was re-run today, 29
+August 2026, over the 73 boards the roster holds at `iderex/operations`
+`origin/main` `f544394ab14a48f307602e768c15f5084d0e0999`, with the same command
+the first section uses:
+
+    64 absent
+     9 present, and 9 distinct blob ids
+
+`iderex/wache` was one of the 64 until this change and is the tenth board with
+the file after it. The other 63 are other boards' trees, this board writes into
+none of them, and `#24`'s second done-when asks for a copy on each - so one
+board taking the copy moves that line by one board and does not meet it.
 
 WHAT OPENS AN ISSUE ON A DRIFTED BOARD IS THE SWEEP AND NOT THIS PAGE. `#31` is
 where that sweep lives, this board writes into no other tree, and nothing in

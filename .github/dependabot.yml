@@ -1,0 +1,39 @@
+# THIS BOARD'S COPY OF THE CANONICAL DEPENDABOT CONFIGURATION.
+#
+# GitHub reads `.github/dependabot.yml` out of each repository, so this file is
+# copied and not called - it is the one thing on this board that works that way,
+# and the argument for it is in templates/dependabot.yml rather than repeated
+# here.
+#
+# THE TWO LINES BELOW ARE THE WHOLE OF THE COPY CONTRACT. They name where this
+# block came from and the iderex/wache commit it was taken at, and the drift
+# test in docs/dependabot-across-the-boards.md reads exactly them: it resolves
+# `taken-at`, takes the template as it stood at that commit, and compares the
+# `github-actions` block against the one below. A copy carrying neither line is
+# not judged as up to date and not judged as drifted - it is not judged at all.
+#
+#   origin: iderex/wache templates/dependabot.yml
+#   taken-at: a637780d22d9472988fc5c330643de63b4e5e68a
+#
+# NO ECOSYSTEM IS ADDED BELOW THE BLOCK, AND THAT IS THIS BOARD RATHER THAN THE
+# CONTRACT. The template says a board's own ecosystems go under the canonical
+# block; this board holds workflows and documents and no package manifest of any
+# kind, so there is nothing to put there.
+#
+# WHAT AN UPDATER IS FOR ON A BOARD THAT PINS BY SHA. Every action used here is
+# pinned by commit sha, so no version moves on its own. This block is the only
+# thing that moves one afterwards.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
