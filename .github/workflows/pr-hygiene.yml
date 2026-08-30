@@ -41,9 +41,15 @@ on:
           Author addresses whose commits are not held to the subject rule, one
           per line. Automation cannot name an issue it does not know about, and
           three boards exempt it by an explicit allowlist of identities. Each
-          entry is matched exactly and against the `<id>+<entry>` form GitHub
-          mints, never as a `*[bot]@...` glob, so a human cannot self-exempt by
-          crafting a `[bot]`-shaped author address. Empty exempts nobody.
+          entry is matched exactly, and against the `<id>+<entry>` form GitHub
+          mints, where the `<id>` is digits and nothing else - never as a
+          `*[bot]@...` glob and never with a local part of the caller's
+          choosing, so `attacker+dependabot[bot]@users.noreply.github.com` is
+          refused. WHAT THAT DOES NOT DO IS STOP SELF-EXEMPTION, and this input
+          does not claim to. A git author address is a field typed by whoever
+          commits, so anyone who types a listed address exactly is skipped, and
+          nothing here reads which account opened the pull request. Empty
+          exempts nobody.
         type: string
         default: ''
         required: false
@@ -166,20 +172,35 @@ jobs:
             return 1
           }
 
-          # An entry matches the address itself or GitHub's `<id>+<entry>` form.
-          # The entry is expanded inside quotes in the pattern, so `[bot]` is
-          # five literal characters and not a bracket expression - which is the
-          # whole point of an allowlist here. A `*[bot]@...` glob would let a
-          # human exempt themselves by choosing an author address.
+          # An entry matches the address itself, or GitHub's `<id>+<entry>`
+          # form, in which the `<id>` is the digits the platform mints and not
+          # a local part anybody may choose. The entry is expanded inside
+          # quotes in the pattern, so `[bot]` is five literal characters and
+          # not a bracket expression - which is the whole point of an allowlist
+          # here.
+          #
+          # THE DIGITS ARE THE LEG. Without them the second pattern is
+          # `*"+$entry"`, whose `*` is any local part at all, and a human could
+          # exempt themselves from the subject rule by choosing an author
+          # address - which is what the two paragraphs above used to say only a
+          # `*[bot]@...` glob would allow. Issue #55. Delete the inner `case`
+          # and the three `must_not_exempt` fixtures below turn the run red.
           is_exempt_author() {
-            local address=$1 list=$2 entry
+            local address=$1 list=$2 entry id
             [ -n "$list" ] || return 1
             while IFS= read -r entry; do
               entry="${entry#"${entry%%[![:space:]]*}"}"
               entry="${entry%"${entry##*[![:space:]]}"}"
               [ -n "$entry" ] || continue
               case "$address" in
-                "$entry" | *"+$entry") return 0 ;;
+                "$entry") return 0 ;;
+                *"+$entry")
+                  id=${address%"+$entry"}
+                  case "$id" in
+                    '' | *[!0-9]*) ;;
+                    *) return 0 ;;
+                  esac
+                  ;;
               esac
             done <<< "$list"
             return 1
@@ -326,6 +347,14 @@ jobs:
           must_not_exempt "a bot outside the list"      'github-actions[bot]@users.noreply.github.com'      "$bots"
           must_not_exempt "an ordinary author"          'ada@example.org'                                   "$bots"
           must_not_exempt "an empty list exempts nobody" 'dependabot[bot]@users.noreply.github.com'         ''
+          # THE NEAR MISS IS ONE CHARACTER CLASS WIDE, so the three below are
+          # the ones worth the lines. Each was exempt against this same list
+          # until #55, and the last is the one somebody would actually write: a
+          # local part that opens with the digits of a real id and then stops
+          # being one.
+          must_not_exempt "a chosen local part is not an id" 'attacker+dependabot[bot]@users.noreply.github.com'    "$bots"
+          must_not_exempt "an empty id is not an id"         '+dependabot[bot]@users.noreply.github.com'            "$bots"
+          must_not_exempt "digits then a word is not an id"  '4970attacker+dependabot[bot]@users.noreply.github.com' "$bots"
 
           must_be_outside "a fork, whatever the association" 'true'  'COLLABORATOR'
           must_be_outside "a first-time contributor"         'false' 'FIRST_TIME_CONTRIBUTOR'
