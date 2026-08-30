@@ -12,6 +12,11 @@ proposes nothing. What content the drift should be removed against is the
 second line of that done-condition, and the last section here is the reason it
 cannot be the majority copy unchanged.
 
+THE POPULATION HAS MOVED SINCE, AND `Re-read on 30 August 2026` NEAR THE END IS
+WHERE THAT IS RECORDED. Two singleton copies are outside everything between here
+and there. Every figure in the sections before it is 27 August's and is left as
+it was taken.
+
 ## The population, derived rather than typed
 
 The board list comes from the roster:
@@ -277,6 +282,183 @@ currently makes - is not the whole of the risk. Standardising on this content
 unchanged would also spread a false statement onto boards that had corrected it,
 which is the same defect running the other way.
 
+## Re-read on 30 August 2026: two copies this reading never covered
+
+The population above is 27 August's. Re-derived three days later against the
+roster at `origin/main` `47855f5510e7ee0c098226954f92adafab2be9c4`, with the
+same two commands:
+
+```
+boards | wc -l
+73
+
+boards | while read -r r; do
+  sha=$(gh api "repos/$r/contents/.github/workflows/dco.yml" --jq '.sha' 2>/dev/null) || sha=absent
+  printf '%s\t%s\n' "$r" "$sha"
+done > dco.tsv
+
+awk -F'\t' '$2!="absent"' dco.tsv | wc -l
+63
+awk -F'\t' '$2!="absent"{print $2}' dco.tsv | sort -u | wc -l
+33
+awk -F'\t' '$2!="absent"{print $2}' dco.tsv | sort | uniq -c | sort -rn |
+  awk '{printf "%s ", $1} END{print ""}'
+29 3 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+```
+
+63 copies over 73 boards, 33 distinct contents, the same cluster of 29 and the
+same cluster of 3, and 31 boards each holding a file nobody else holds. The
+reference content is unmoved and is still held by 29:
+
+```
+awk -F'\t' '$2=="5b53eab934abf424af0a207534d1864744c2395e"' dco.tsv | wc -l
+29
+```
+
+Three of those 31 are not in the table above, and every one of the 28 the table
+holds is still a singleton, so nothing left the tail:
+
+```
+awk -F'\t' '$2!="absent"{print $2}' dco.tsv | sort | uniq -c |
+  awk '$1==1{print $2}' > singles
+grep -F -f singles dco.tsv | cut -f1 | sort > singletons-now
+comm -13 table28 singletons-now
+iderex/Easy-Compliance-Manager
+iderex/swarm.asm
+iderex/wache
+comm -23 table28 singletons-now
+```
+
+**`iderex/wache` IS NOT A COPY, AND THE METHOD COUNTS IT AS ONE.** The file this
+board tracks is the shared gate itself, the thing the other copies would be
+migrated onto, and a comparison of bytes has no way to tell a source from a copy:
+
+```
+git rev-parse origin/main:.github/workflows/dco.yml
+1f6ba061c770067deb8cb5eed4557273fbe99fef
+awk -F'\t' '$1=="iderex/wache"{print $2}' dco.tsv
+1f6ba061c770067deb8cb5eed4557273fbe99fef
+```
+
+That leaves two copies the reading never placed.
+
+## The two, placed
+
+| Board | Placed as | Declared in the file | Lines of difference outside comments | What the difference is |
+| --- | --- | --- | --: | --- |
+| `iderex/Easy-Compliance-Manager` | deviation | declared, one half stale | 31 | Refuses a range holding no non-merge commit, empty top-level permissions with `contents: read` on the job, and a runner-hardening step. The header attributes its posture to a document that is not in that tree. |
+| `iderex/swarm.asm` | deviation | declared | 51 | The rule lives in a PowerShell script that board's own test suite exercises, and the bot exemption is keyed on the account that opened the pull request as well as on the author address. |
+
+Both are deviations under the test the earlier sections use, and both are
+strictly tighter than the reference rather than looser.
+
+**`iderex/Easy-Compliance-Manager` refuses an empty range, and the reference
+passes one.** After the guarded walk it adds:
+
+```
+if [ -z "$commits" ]; then
+  echo "::error::No non-merge commit found in ${BASE_SHA}..${HEAD_SHA}. Nothing was verified, so this fails rather than passes."
+  exit 1
+fi
+```
+
+The reference walks the same range, iterates nothing, and prints that every
+commit carries a sign-off. That is a green verdict over an empty set - the shape
+the reference's own guarded `rev-list` exists against, one step further in. The
+same file sets `permissions: {}` at the top level with `contents: read` on the
+job, which is `iderex/nachtwache`'s deviation arriving on a second board.
+
+Every path and number its header names is in that tree or on that tracker,
+except one:
+
+```
+gh api repos/iderex/Easy-Compliance-Manager/contents/DCO --jq .name
+DCO
+gh api repos/iderex/Easy-Compliance-Manager/contents/CONTRIBUTING.md --jq .name
+CONTRIBUTING.md
+gh api repos/iderex/Easy-Compliance-Manager/issues/761 --jq .title
+Require DCO sign-off on every commit and enforce it in CI
+gh api repos/iderex/Easy-Compliance-Manager/issues/262 --jq .title
+Remove all external review/quality services (CodeRabbit, SonarCloud, Copilot) from the repo
+gh api repos/iderex/Easy-Compliance-Manager/contents/ --jq '[.[].name]|join(" ")' | tr ' ' '\n' | grep -c '^CLAUDE.md$'
+0
+```
+
+The header attributes its internal-only posture to `CLAUDE.md directive 2`, and
+that file is not in the tree. It is the same shape as `Flowfin/lab` above - one
+half of the declaration is a live statement about the board and the other half
+has stopped being true, and a comparison of bytes sees one difference.
+
+**`iderex/swarm.asm` moves the rule out of the workflow and into a script its
+test suite runs.** Both paths its header names are there:
+
+```
+gh api repos/iderex/swarm.asm/contents/tools/check-dco.ps1 --jq '.name, .size'
+check-dco.ps1
+9613
+gh api repos/iderex/swarm.asm/contents/tests/Swarm.Tests/DcoSignOffTests.cs --jq '.name, .size'
+DcoSignOffTests.cs
+18724
+```
+
+so the deviation is not a preference about shell dialects. The file states the
+reason - enforcement written inside a workflow is in a language that board has
+no suite for, and the same script is what its fixtures exercise - which is the
+means check recorded where the artefact is.
+
+**Its exemption is keyed on the account that opened the pull request, and the
+reference's is not.** The opener reaches the script beside the two SHAs, with
+the reason written in the file:
+
+> PR_AUTHOR is what makes the bot exemption safe. A commit's author email
+> is a field its author types, so an exemption keyed on that alone is
+> available to anyone who spells Dependabot's address; the opening account
+> is GitHub's own record of who pressed the button, and a pull request
+> opened by a person carries no exemption whatever its commits claim.
+
+That is a behaviour the reference has no form of and that no input to a shared
+workflow expresses, so it belongs with the three under `The three that change
+what the gate does` rather than migrating away. What it says about the shared
+gate's own exemption is `#49`, which is where that reading and its proof live;
+nothing here settles it.
+
+## What the re-reading does to the first done-condition
+
+`#25`'s first line asks that the singleton copies be read and each difference
+placed. It was met against the 28 that existed on 27 August, and it is met
+against 30 of the 31 counted above once these two rows are added - the
+thirty-first being this board's own source file. What moved is the population,
+not the reading.
+
+ONE OF THE TWO ARRIVED AFTER THE SHARED GATE EXISTED, which is the part worth
+reading rather than the arithmetic. Each file's own history says when it landed:
+
+```
+gh api "repos/iderex/Easy-Compliance-Manager/commits?path=.github/workflows/dco.yml&per_page=100" \
+  --jq '[.[].commit.committer.date] | last'
+2026-08-26T21:53:17Z
+gh api "repos/iderex/swarm.asm/commits?path=.github/workflows/dco.yml&per_page=100" \
+  --jq '[.[].commit.committer.date] | last'
+2026-08-28T15:22:57Z
+```
+
+`iderex/Easy-Compliance-Manager`'s copy predates this page by half an hour and
+was missed. `iderex/swarm.asm`'s was written on 28 August, a day after the
+shared gate was merged here, and it is a 33rd distinct content rather than a
+caller. Nothing on any board calls the shared gate yet:
+
+```
+awk -F'\t' '$2!="absent"{print $1}' dco.tsv | while read -r r; do
+  gh api "repos/$r/contents/.github/workflows/dco.yml" --jq '.content' | base64 -d |
+    grep -c 'wache/.github/workflows/dco.yml@'
+done | awk '{s+=$1} END{print s" caller(s)"}'
+0 caller(s)
+```
+
+So the tail grew while the migration waited, by one hand-written copy in the
+three days since the standard existed. That is a reading of three days and not
+a trend.
+
 ## Not evaluated
 
 Whether any of the 60 copies has stopped refusing what it claims to refuse. This
@@ -290,3 +472,10 @@ the argument that largest is not the same as correct.
 
 Whether the two boards naming `DCO.md` should rename the file or the workflow.
 That is a decision on those boards.
+
+The first of those three is written against the 60 copies of 27 August, and the
+re-reading of 30 August widens it rather than replacing it: none of the 63
+copies counted there has been read as a run either, the two placed above
+included. Both were judged by reading their files and by checking the claims
+those files make against their own trees and trackers. Whether either one
+refuses what it says it refuses is not measured here.
