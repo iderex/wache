@@ -140,6 +140,7 @@ jobs:
           RUNS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           THIS_REPO: ${{ github.repository }}
           THIS_RUN: ${{ github.run_id }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           WORKFLOW_FILE: fleet-alert-sweep.yml
           ROSTER_REPO: iderex/operations
           ROSTER_PATH: store/repo
@@ -254,6 +255,39 @@ jobs:
             tr -d '\r' < "$1" | grep -i '^link:' | tr ',' '\n' |
               sed -n 's/.*<\(https[^>]*\)>; *rel="next".*/\1/p' | head -1 || true
             return 0
+          }
+
+          # WHICH RUNS MAY LEAVE A BASELINE BEHIND, AND WHICH MAY BECOME ONE.
+          # Two halves of one question (iderex/wache#52), and the file already
+          # answered a third of it at the keep step: a seeded run keeps nothing
+          # because its reading is an argument to a proof, and a failed run keeps
+          # nothing because it would hand the rises it did not manage to file to
+          # the next run as the baseline they were measured against.
+          #
+          # A DRY RUN IS THAT SECOND CASE WITH THE FILING NEVER ATTEMPTED. It
+          # reads the whole fleet, reports what rose, writes to no tracker, and
+          # kept its reading - so every rise it reported sat inside the next
+          # run's baseline and was never raised by anything. The condition is
+          # whether the run was ALLOWED to file, not whether it filed: a run
+          # where nothing rose files nothing and its reading is exactly the one
+          # the next run needs.
+          may_keep() {
+            # $1 seeded, $2 the dry-run input as it reached the job
+            if [ "$1" != "0" ]; then printf '0\n'; return; fi
+            if [ "${2:-false}" = "true" ]; then printf '0\n'; return; fi
+            printf '1\n'
+          }
+
+          # THE OTHER HALF IS WHERE A BASELINE MAY COME FROM. The run history is
+          # walked newest-first across every branch, so a run of a MODIFIED sweep
+          # on a feature branch could hand its reading to the mainline schedule -
+          # a comparison the mainline never made, against code that never landed.
+          # The query is restricted to the default branch instead, which also
+          # leaves a branch run reading the mainline baseline, which is what
+          # makes a dispatch on a branch a fair rehearsal rather than a fork of
+          # the state.
+          runs_url() {
+            printf 'https://api.github.com/repos/%s/actions/workflows/%s/runs?status=success&branch=%s&per_page=50\n' "$1" "$2" "$3"
           }
 
           # THE REGISTER IS READ OUT OF THE PAGE THAT DECLARES THE BASELINE, so
@@ -492,6 +526,16 @@ jobs:
           same "a response with no link header ends the walk" \
                "$(next_link "$fx/h3")" \
                ""
+
+          # -------- which run keeps a reading, and whose it may read --------
+          same "an ordinary run keeps its reading" "$(may_keep 0 false)" "1"
+          same "a run with no dry-run input at all keeps its reading" "$(may_keep 0 '')" "1"
+          same "a dry run keeps nothing, because it was never allowed to file" "$(may_keep 0 true)" "0"
+          same "a seeded run keeps nothing" "$(may_keep 1 false)" "0"
+          same "a seeded dry run keeps nothing either" "$(may_keep 1 true)" "0"
+          same "the previous reading is looked for on the default branch alone" \
+               "$(runs_url iderex/wache fleet-alert-sweep.yml main)" \
+               "https://api.github.com/repos/iderex/wache/actions/workflows/fleet-alert-sweep.yml/runs?status=success&branch=main&per_page=50"
 
           # -------- the baseline row leg --------
           rowed() { rows "$fx/conf" "$fx/waiv"; }
@@ -880,10 +924,21 @@ jobs:
             echo "configuration: $(grep -c '^C' "$config" || true) control reading(s)"
 
             # -------- the previous reading --------
+            # THE DEFAULT BRANCH IS READ AND NEVER ASSUMED TO BE `main`. Every
+            # board here uses that name and this one is about not carrying a
+            # copy of a fact somewhere else holds.
+            if [ -z "${DEFAULT_BRANCH:-}" ]; then
+              c=$(req GET "https://api.github.com/repos/$THIS_REPO" "$RUNS_TOKEN")
+              [ "$c" = "200" ] && DEFAULT_BRANCH=$(jq -r '.default_branch // ""' < "$body")
+            fi
+            if [ -z "${DEFAULT_BRANCH:-}" ]; then
+              echo "::error::the default branch of $THIS_REPO could not be read, so which runs may leave a baseline cannot be decided. Refusing rather than falling back to the whole run history, which is what this restriction exists against."
+              exit 1
+            fi
             prev_run=""
-            c=$(req GET "https://api.github.com/repos/$THIS_REPO/actions/workflows/$WORKFLOW_FILE/runs?status=success&per_page=50" "$RUNS_TOKEN")
+            c=$(req GET "$(runs_url "$THIS_REPO" "$WORKFLOW_FILE" "$DEFAULT_BRANCH")" "$RUNS_TOKEN")
             if [ "$c" != "200" ]; then
-              c=$(req GET "https://api.github.com/repos/$THIS_REPO/actions/workflows/$WORKFLOW_FILE/runs?status=success&per_page=50" "$SWEEP_TOKEN")
+              c=$(req GET "$(runs_url "$THIS_REPO" "$WORKFLOW_FILE" "$DEFAULT_BRANCH")" "$SWEEP_TOKEN")
             fi
             if [ "$c" != "200" ]; then
               echo "::error::the run history of this workflow answered $c, so the previous reading cannot be reached. A sweep that cannot read its own baseline reports every rule as first-seen forever, which is silence wearing the clothes of a clean fleet. Refusing."
@@ -1003,6 +1058,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "seeded=$seeded" >> "$GITHUB_ENV"
+          # WRITTEN BEFORE THE EARLY EXIT BELOW, not beside the filing. A run
+          # where nothing rose leaves here without reaching the filing block at
+          # all, and its reading is exactly the one the next run needs.
+          echo "keep_reading=$(may_keep "$seeded" "${DRY_RUN:-false}")" >> "$GITHUB_ENV"
 
           if [ -z "$risen" ]; then
             echo "nothing rose, so nothing is filed"
@@ -1117,7 +1176,17 @@ jobs:
         # they would never be raised again. Dropping the reading instead costs a
         # repeated comparison, and the repeat finds the issue it already opened
         # and updates it.
-        if: ${{ success() && env.seeded == '0' }}
+        #
+        # A DRY RUN KEEPS NOTHING, AND THIS STEP SAID ONLY THE TWO ABOVE. It is
+        # the second case with the filing never attempted rather than failed:
+        # the run reads the whole fleet, reports what rose, writes to no
+        # tracker, and its reading would put every one of those rises inside the
+        # baseline they were next measured against. It was found by causing it -
+        # `iderex/wache#52` carries the run, the twelve rises it reported and
+        # the artifact that had to be deleted by hand. `env.keep_reading` is
+        # `may_keep` in the step above rather than an expression here, so the
+        # condition has fixtures.
+        if: ${{ success() && env.keep_reading == '1' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: alert-reading
