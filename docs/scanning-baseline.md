@@ -9,10 +9,24 @@ baseline was re-read on 28 August 2026 at `origin/main`
 produced it, and a settings change moves any of them without touching this file,
 so re-run them rather than citing this page.
 
+A THIRD READING WAS TAKEN ON 30 AUGUST 2026 against the roster at
+`iderex/operations` `origin/main` `cb137493474faaf32439588f8d893f2e2b1dec87`,
+and it is the one the sections below carry where they disagree with the two
+above. It moved three things: the open question about default setup is answered
+and closed, Dependabot separates into two readings that this page had as one, and
+33 roster records turn out to declare a visibility the board does not have.
+
 This is the home `#32` asks for: the baseline written down, the state measured,
 and the register a board writes into when it deliberately does not scan. It
 rolls nothing out. The settings themselves are changed in each repository's own
 configuration and no change here reaches them.
+
+SOMETHING READS THIS PAGE NOW, and that is what changed on 30 August. The
+baseline leg of `.github/workflows/fleet-alert-sweep.yml` reads the rows below,
+reads the register at the bottom, reads each roster board's live configuration,
+and names every board short of its own row. What it does and where it stops is
+`## What reads this page` below. Until then the page was a document nothing
+executed, which is the half of `#32` that stayed open after the settings sweep.
 
 ## The baseline
 
@@ -129,13 +143,38 @@ analysis key:
     gh api "repos/iderex/kanzlei/code-scanning/default-setup" --jq '[.state, (.updated_at // "null")] | @tsv'
     not-configured    null
 
-WHICH OF THE TWO THOSE 32 BOARDS ARE ACTUALLY IN IS NOT DECIDED HERE. Both
-readings are reproduced above, this page asserts neither over the other, and no
-mechanism is proposed for the disagreement. What it does establish is the thing
-the second half of `#32` is about: `analyses present` is a reading of the PAST
-and does not say that scanning is configured NOW, so a sweep that asks only the
-alerts endpoint cannot see a board whose setup has come back off. The sweep in
-`#31` has to read the setup state rather than infer it.
+WHICH OF THE TWO THOSE BOARDS ARE IN IS DECIDED NOW, AND THE PARAGRAPH THAT
+STOOD HERE SAID IT COULD NOT BE. What it said was that both readings were
+reproduced, that this page asserted neither over the other, and that no mechanism
+was proposed for the disagreement. There is no disagreement. `not-configured` on
+that endpoint is the correct answer for a board that configures CodeQL the OTHER
+way - an advanced setup, which is a workflow in the board's own tree calling
+`github/codeql-action` and which that endpoint does not describe. It was found by
+asking each such board a third question instead of comparing the first two: the
+analysis names the workflow that produced it, and whether that file is on the
+board today is a reading of the present rather than of the past.
+
+Over the 34 public boards of the roster on 30 August 2026, 6 report default setup
+`configured` and 28 report `not-configured`. All 28 of the 28 carry the workflow
+their newest analysis names, and every one of those files calls
+`github/codeql-action`:
+
+    for r in <the 28>; do
+      key=$(gh api "repos/$r/code-scanning/analyses?per_page=30" \
+              --jq '[.[] | .analysis_key | select(startswith(".github/workflows/"))] | first // ""')
+      gh api "repos/$r/contents/${key%%:*}" --jq '.content' | base64 -d |
+        grep -q 'github/codeql-action' && echo present || echo absent
+    done | sort | uniq -c
+    28 present
+
+So every public board of the roster has CodeQL configured, by one route or the
+other, and a rule that judged the default-setup endpoint alone would have named
+28 boards that scan. THE HALF OF THE OLD PARAGRAPH THAT SURVIVES IS THE ONE THE
+SECOND HALF OF `#32` RESTS ON: `analyses present` is a reading of the PAST and
+does not say that scanning is configured NOW, so a sweep that asks only the
+alerts endpoint cannot see a board whose setup has come back off. What replaces
+the inference is two present-tense readings, either of which satisfies the row -
+the default-setup endpoint, and the workflow file itself.
 
 ## The line is still visibility, and both sides of it have changed meaning
 
@@ -162,10 +201,45 @@ is out, so the private boards get the free baseline, and whether Advanced
 Security could be bought for them stops being a question this page has to
 answer.
 
+## The roster records disagree with the boards about which row they are in
+
+Which row a board is in is decided by its LIVE visibility, because this page
+says a private board that goes public crosses into the public row the day its
+visibility changes. The roster record is the register's claim about the same
+fact, and on 30 August 2026 the two disagree on 33 of the 73 boards, all in one
+direction - the record declares `public` and the board is private:
+
+    for f in $(git -C <operations> ls-tree --name-only origin/main store/repo/ | grep -v README); do
+      git -C <operations> show "origin/main:$f" |
+        awk '/^Owner: /{o=$2} /^Id: /{i=$2} /^Visibility: /{v=$2} END{if(o&&i) print o"/"i"\t"v}'
+    done | sort > roster.tsv
+    while read -r b _; do printf '%s\t%s\n' "$b" "$(gh api "repos/$b" --jq '.visibility')"; done < roster.tsv | sort > live.tsv
+    join -t$'\t' roster.tsv live.tsv | awk -F'\t' '$2 != $3' | wc -l
+    33
+    join -t$'\t' roster.tsv live.tsv | awk -F'\t' '$2 != $3 { print $2 " -> " $3 }' | sort | uniq -c
+    33 public -> private
+
+Read against one board on both sides, so the join is not the only thing behind
+the count:
+
+    git -C <operations> show origin/main:store/repo/attrappe.md | grep -m1 '^Visibility: '
+    Visibility: public
+    gh api repos/iderex/attrappe --jq '[.visibility, (.private | tostring)] | @tsv'
+    private    true
+
+THIS IS NOT A SCANNING GAP AND IT IS NAMED HERE BECAUSE IT DECIDES ONE. A board
+in the private row is at its baseline with both Advanced Security features off,
+and a board in the public row with them off is behind it, so a register that puts
+33 boards in the wrong row is a register that would answer the question this page
+exists for backwards. The records are in another tree and nothing here changes
+them; the leg below names the disagreement on every run rather than choosing a
+side of it.
+
 ## The recorded reasons
 
 ### `iderex/jellyfin-web` - Dependabot alerts off on a fork
 
+Waives: dependabot-alerts
 Reason: the board is a fork of `jellyfin/jellyfin-web` and carried 62 open
 Dependabot alerts, every one inherited from upstream's dependency tree. That
 surface is watched upstream.
@@ -173,11 +247,20 @@ Decided: 27 August 2026, and recorded on `#32`.
 Expires when: the fork grows security-relevant divergence of its own. The sweep
 should say so when it does.
 
-This board is not in the roster the counts above are taken over, and it is the
-shape the entries below follow.
+The reason is executed rather than only written, and the state it is a reason for
+is the one the board reports:
+
+    gh api repos/iderex/jellyfin-web/vulnerability-alerts -i | head -1
+    HTTP/2.0 404 Not Found
+
+This board is not in the roster the counts above are taken over, so the sweep
+names the waiver as being for a board outside the population it swept rather than
+holding anything out with it. That is the entry doing what it says and not a
+defect. It is the shape the entries below follow.
 
 ### `iderex/.github` - no CodeQL-supported language
 
+Waives: code-scanning
 Reason: there is nothing on the board for CodeQL to analyse. It is the one
 public board of the 39 with no code-scanning analysis, and GitHub's own
 enumeration of what it could analyse there is empty:
@@ -203,9 +286,22 @@ the private row of the baseline rather than a reason anyone owes. Nothing is
 recorded here for them, because a register entry is for a board sitting outside
 its own row and none of them is.
 
-What they get instead is Dependabot and the local gate's own legs. Whether they
-actually carry Dependabot is a different axis, and this page does not sweep it -
-see below.
+What they get instead is Dependabot and the local gate's own legs. Which of the
+two things called Dependabot that means is separated below, and one of the two is
+swept here now.
+
+### `iderex/agent-operations` - archived, and judged against no row
+
+The one archived board of the roster reports Dependabot alerts off:
+
+    gh api repos/iderex/agent-operations/vulnerability-alerts -i | head -1
+    HTTP/2.0 404 Not Found
+
+It carries no `Waives:` line and is not an entry in this register, because no
+setting on an archived repository can be changed and a recorded reason is for a
+board that could sit inside its row and does not. The leg below names it as
+archived and judges it against neither row. Reopening the board takes it out of
+that state and back into whichever row its visibility puts it in.
 
 ### `iderex/wache`, `iderex/Typeset`, `iderex/iderex` - the entry that expired
 
@@ -223,20 +319,93 @@ this page. The roster record for this board already says it carries none of the
 five universal guards yet, and that is the same absence read from the other
 side.
 
+## What reads this page
+
+The baseline leg of `.github/workflows/fleet-alert-sweep.yml`. It runs in the
+same scheduled job as the alert delta and is a different question: the delta asks
+whether a count rose, this asks whether the configuration that produces counts is
+still there. A board that loses code scanning stops answering the alerts
+endpoint, and the delta is deliberately written to pass over a pair it cannot
+read rather than report it as a fall to zero - so without this leg a board could
+leave its row and the sweep would be silent by design.
+
+**What it reads per board.** The live visibility, which decides the row. Whether
+the board is archived. Secret scanning and push protection, from the repository
+object. Code scanning, from the default-setup endpoint AND from whether the
+workflow its newest analysis names is on the board today calling
+`github/codeql-action` - either satisfies the row, for the reason the corrected
+section above sets out. Dependabot alerts, from `/vulnerability-alerts`, which
+answers 204 for enabled and 404 for disabled and so separates a feature that is
+off from an endpoint that refused, which the alerts endpoint does not.
+
+**How a recorded reason is declared.** An entry in the register above is a
+heading naming its boards in backticks and carrying, at column zero, a line
+beginning `Waives` and a colon, then the controls it holds out, comma separated.
+The four control names are `code-scanning`, `secret-scanning`, `push-protection`
+and `dependabot-alerts`. A heading with no such line waives nothing, which is what
+keeps this page's ordinary headings and its expired entries out of the register,
+and an entry naming several boards waives for all of them rather than for the
+first.
+
+**It fails closed in both directions.** A waiver naming a control the leg does
+not judge refuses the run, because it would hold nothing out while reading as
+though it did. So does a waiver under a heading that names no board. A waiver for
+a control the board now satisfies is named as stale, and a waiver for a board
+outside the swept population is named as such rather than passed over.
+
+**What it does not do is refuse.** A board short of its row is named in the run
+summary; the exit code stays the alert delta's. A red scheduled run would throw
+away the day's alert reading, because the artifact is kept on a successful run
+alone, so making a configuration shortfall fail the run would cost the delta the
+first leg exists for. Where that naming should land beyond the run itself is
+`#48`.
+
+**What it named on the first fleet-wide run of its judgement**, taken by hand
+against the readings above on 30 August 2026 before it had run on a schedule: one
+archived board, 33 boards whose roster record disagrees with their visibility,
+and no board short of any of the four controls.
+
 ## What is not covered here
 
 - No setting is changed by anything in this repository, and no route here reads
   one either. This page is a reading and a register; the state it records went
   stale the moment it was written, and the correction above is what that looks
   like when it happens within a day.
-- Dependabot is in both rows of the baseline and is swept nowhere here. Whether
-  a board carries `.github/dependabot.yml` at all is read in
-  `docs/dependabot-across-the-boards.md`, and it returns 64 of the 73 roster
-  boards without one, so the Dependabot half of the baseline is the further from
-  met of the two.
-- `zizmor` is in the public row of the baseline and no board's state for it is
-  read anywhere in this repository.
+- DEPENDABOT IS TWO FEATURES AND THIS PAGE HAD THEM AS ONE. Dependabot ALERTS
+  are the scanning half: the platform matches a board's dependency graph against
+  its advisory database and reports what it finds. Dependabot VERSION UPDATES are
+  the other half, configured by `.github/dependabot.yml` in each board's own
+  tree, and they open pull requests rather than report anything. The bullet that
+  stood here read the baseline's `Dependabot` as the second alone and called it
+  the further from met of the two.
+
+  The alert half is swept now, and it is on almost everywhere:
+
+      while read -r b; do gh api "repos/$b/vulnerability-alerts" -i | head -1; done < boards.txt |
+        awk '{print $2}' | sort | uniq -c
+      72 204
+       1 404
+
+  The one board answering 404 is `iderex/agent-operations`, which is archived and
+  has its own entry above. The update half is read in
+  `docs/dependabot-across-the-boards.md`, returns 63 of the 73 roster boards
+  without the file, and is swept nowhere here. WHICH OF THE TWO THE BASELINE ROW
+  MEANS IS NOT DECIDED ON THIS PAGE. The decision it records says `dependabot`
+  and nothing finer, and reading it either way changes what `#32` still owes, so
+  it is left as the open question it is rather than settled by whichever reading
+  makes a done-condition easier. The update half is `#24` either way.
+- `zizmor` is in the public row of the baseline, no board's state for it is read
+  anywhere in this repository, and the leg above does not judge it. A `Waives:`
+  line naming it would refuse the run rather than be ignored, which is the
+  register failing closed on a control nothing reads.
 - Whether a board that reports `analyses present` analyses the whole tree, or
   which languages its analysis covers. The endpoint says an analysis exists.
-- Nothing here runs on a schedule. Every figure above was produced by a command
-  somebody chose to run, and `#31` is where the sweep that would run them lives.
+- THE FIGURES ABOVE STILL COME FROM COMMANDS SOMEBODY CHOSE TO RUN, and this
+  bullet said nothing here runs on a schedule. The leg described above does, in
+  the sweep `#31` landed. What it does not do is write this page: a scheduled run
+  cannot land a document on this mainline, so the state recorded here goes stale
+  exactly as it did before and the run's own summary is the current reading. That
+  is `#48`.
+- The leg reads four controls and the row a board is in. It reads no alert, no
+  finding and no severity; whether a board that scans scans WELL is not a
+  question anything here asks.

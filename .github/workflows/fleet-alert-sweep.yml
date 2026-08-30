@@ -55,6 +55,30 @@
 # THE FIXTURES RUN BEFORE THE JUDGEMENT, in the shape the rest of this board
 # uses: every rule has a line that bites and a line that passes, and if a fixture
 # disagrees with the rule it is meant to prove the run judges nothing.
+#
+# THE SECOND LEG READS A CONFIGURATION AND NOT A COUNT (iderex/wache#32). An
+# alert count is a reading of what scanning FOUND, and it says nothing about
+# whether scanning is still switched on: a board that loses code scanning stops
+# answering the alerts endpoint, which the delta above is written to pass over
+# rather than report as a fall to zero. So a board can leave the baseline
+# `docs/scanning-baseline.md` declares and the alert leg is deliberately silent
+# about it. The baseline leg asks the configuration endpoints instead - the
+# board's live visibility, secret scanning, push protection and code scanning -
+# decides which of the two baseline rows the board is in from that visibility,
+# and names every board short of its own row.
+#
+# IT READS THE PAGE THAT DECLARES THE BASELINE RATHER THAN CARRYING A COPY OF
+# IT. A board that deliberately sits outside its row records the reason in the
+# register on that page, and the register entry carries a `Waives:` line naming
+# the control. A second list of exceptions inside this file would drift against
+# the page silently, which is the same failure the roster is fetched to avoid.
+#
+# WHAT IT DOES NOT DO IS REFUSE. A board short of its row is named in the run
+# summary; the run's exit code is the alert leg's. A red scheduled run would
+# also throw away the day's alert reading, because the artifact is kept on
+# `success()` alone, so making a configuration shortfall fail the run would cost
+# the delta the first leg exists for. Where that naming should land beyond the
+# run itself is `iderex/wache#48`.
 name: Fleet alert sweep
 
 on:
@@ -102,6 +126,14 @@ jobs:
       contents: read
       actions: read
     steps:
+      # THE BASELINE PAGE IS THE ONE FILE THIS SWEEP READS OUT OF ITS OWN TREE.
+      # The register of recorded reasons lives there, and a copy of it in this
+      # file would drift against the page nobody would think to re-read.
+      - name: Take the tree this sweep reads its own baseline out of
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Judge the fixtures, then the fleet
         env:
           SWEEP_TOKEN: ${{ secrets.FLEET_SWEEP_TOKEN }}
@@ -111,6 +143,7 @@ jobs:
           WORKFLOW_FILE: fleet-alert-sweep.yml
           ROSTER_REPO: iderex/operations
           ROSTER_PATH: store/repo
+          BASELINE_PAGE: docs/scanning-baseline.md
           DRY_RUN: ${{ inputs.dry_run }}
           ONLY_BOARDS: ${{ inputs.boards }}
           SEED_BASELINE: ${{ inputs.seed_baseline }}
@@ -129,6 +162,18 @@ jobs:
           # a `read` state, so a pair that was not read carries no counts and can
           # neither rise nor fall. That is the invariant the comparison rests on,
           # and the fixtures pin it.
+          #
+          # The baseline leg keeps a second format, in its own file, because it
+          # is judged against a declared row rather than against yesterday:
+          #
+          #   C <TAB> board <TAB> control <TAB> value
+          #   W <TAB> board <TAB> control
+          #
+          # A `C` line is one configuration reading, and its value is either the
+          # reading or `unread:<reason>` for the same reason the `S` line carries
+          # one - a control that could not be read is not a control that is off.
+          # A `W` line is a waiver, extracted from the register on the baseline
+          # page rather than declared here.
           # ------------------------------------------------------------------
 
           # A REASON RATHER THAN A ZERO. Every non-200 becomes a state and the
@@ -209,6 +254,149 @@ jobs:
             tr -d '\r' < "$1" | grep -i '^link:' | tr ',' '\n' |
               sed -n 's/.*<\(https[^>]*\)>; *rel="next".*/\1/p' | head -1 || true
             return 0
+          }
+
+          # THE REGISTER IS READ OUT OF THE PAGE THAT DECLARES THE BASELINE, so
+          # a recorded reason has one home and not two. An entry is a heading
+          # naming its boards in backticks and carrying a `Waives:` line; a
+          # heading with no `Waives:` line waives nothing, which is what keeps
+          # the page's ordinary prose headings - and its expired entries - out
+          # of the register.
+          #
+          # A HEADING NAMING SEVERAL BOARDS WAIVES FOR ALL OF THEM rather than
+          # for the first. Taking the first backticked name would have read the
+          # page's own three-board heading as a waiver for one board and silence
+          # for two, which is the shape that is wrong in the direction nobody
+          # notices.
+          waivers_from() {
+            awk '
+              /^##+ / {
+                n = 0
+                line = $0
+                while (match(line, /`[^`]+`/)) {
+                  nm = substr(line, RSTART + 1, RLENGTH - 2)
+                  if (nm ~ /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/) { n++; names[n] = nm }
+                  line = substr(line, RSTART + RLENGTH)
+                }
+                next
+              }
+              /^Waives:[ \t]/ {
+                spec = $0
+                sub(/^Waives:[ \t]*/, "", spec)
+                gsub(/[ \t]/, "", spec)
+                c = split(spec, ctrl, ",")
+                if (n == 0) { for (j = 1; j <= c; j++) print "W\t-\t" ctrl[j]; next }
+                for (i = 1; i <= n; i++) for (j = 1; j <= c; j++) print "W\t" names[i] "\t" ctrl[j]
+              }
+            ' "$1" | LC_ALL=C sort -u
+          }
+
+          # THE REGISTER FAILS CLOSED IN BOTH DIRECTIONS. A control this leg does
+          # not judge is a waiver that silently holds nothing out, and a `Waives:`
+          # line under a heading naming no board is a waiver with no subject.
+          # Both refuse the run rather than being skipped, because a register
+          # nobody can trust is worse than none.
+          unknown_controls() {
+            awk -F'\t' '$1 == "W" {
+              if ($3 != "code-scanning" && $3 != "secret-scanning" &&
+                  $3 != "push-protection" && $3 != "dependabot-alerts") print $3
+            }' "$1" | LC_ALL=C sort -u
+          }
+
+          boardless_waivers() {
+            awk -F'\t' '$1 == "W" && $2 == "-" { print $3 }' "$1" | LC_ALL=C sort -u
+          }
+
+          # THE ROW JUDGEMENT, and like the delta above it is a pure function of
+          # files so the fixtures can refuse it before it judges a fleet.
+          #
+          # WHICH ROW A BOARD IS IN IS ITS LIVE VISIBILITY AND NOT ITS ROSTER
+          # RECORD. The page says a private board that goes public crosses into
+          # the public row on the day its visibility changes, so reading the row
+          # off the record would hold a board in the row it used to be in. The
+          # record is still read, and a disagreement between the two is named -
+          # a board that crossed rows with nobody writing it down is exactly what
+          # this issue is about.
+          #
+          # A WAIVER IS SPENT OR IT IS NAMED. A recorded reason for a control the
+          # board now satisfies is stale, and a register that keeps silent about
+          # its own stale entries is read as a live one. So the control is judged
+          # FIRST and the waiver applied to the verdict, rather than the waiver
+          # being checked first and the reading never taken.
+          rows() {
+            awk -F'\t' -v conf="$1" -v waiv="$2" '
+              function judge(b, c, value, want,   key, ok) {
+                key = b SUBSEP c
+                ok = (value == want)
+                if (key in w) {
+                  used[key] = 1
+                  if (ok) print b "\t" c "\tstale-waiver\t" value ", which is what the row asks for"
+                  else print b "\t" c "\twaived\t" value
+                  return
+                }
+                if (ok) return
+                if (value ~ /^unread/) { print b "\t" c "\tunjudged\t" value; return }
+                print b "\t" c "\tshort\t" value ", where the row asks for " want
+              }
+              FILENAME == conf && $1 == "C" { v[$2 SUBSEP $3] = $4; board[$2] = 1; next }
+              FILENAME == waiv && $1 == "W" { w[$2 SUBSEP $3] = 1; next }
+              END {
+                for (b in board) {
+                  vis = v[b SUBSEP "visibility"]
+                  if (vis == "") vis = "unread:no-line"
+                  if (vis ~ /^unread/) {
+                    print b "\t-\tunjudged\tvisibility " vis ", and the row a board is in cannot be decided without it"
+                    continue
+                  }
+                  if (v[b SUBSEP "archived"] == "true") {
+                    print b "\t-\tarchived\tno setting on it can be changed, so it is named rather than judged"
+                    continue
+                  }
+                  rv = v[b SUBSEP "roster-visibility"]
+                  if (rv != "" && rv != "absent" && rv != vis)
+                    print b "\t-\tcrossed-rows\tthe roster record declares " rv " and the board is " vis
+                  # DEPENDABOT STANDS IN BOTH ROWS, and it is read on its own
+                  # endpoint rather than off the state the alert leg keeps. That is
+                  # `unread:<code>` for a board with the feature off AND for a
+                  # board the token cannot reach, and folding those two together
+                  # is the error this whole file is written against.
+                  judge(b, "dependabot-alerts", v[b SUBSEP "dependabot-alerts"], "enabled")
+                  # The private row is Dependabot and the local gate. It asks for
+                  # neither Advanced Security feature, so a private board
+                  # reporting both off is AT its baseline and is named nowhere.
+                  if (vis != "public") continue
+                  judge(b, "secret-scanning", v[b SUBSEP "secret-scanning"], "enabled")
+                  judge(b, "push-protection", v[b SUBSEP "push-protection"], "enabled")
+                  # CODE SCANNING HAS TWO CONFIGURATIONS AND EITHER SATISFIES THE
+                  # ROW. Default setup answers its own endpoint; advanced setup
+                  # does not, and reports `not-configured` there while the board
+                  # scans perfectly well from a workflow of its own. Judging on
+                  # the endpoint alone would name every advanced-setup board.
+                  cs = b SUBSEP "code-scanning"
+                  setup = v[b SUBSEP "code-scanning-setup"]
+                  wf = v[b SUBSEP "code-scanning-workflow"]
+                  scanned = (setup == "configured" || wf == "present")
+                  if (cs in w) {
+                    used[cs] = 1
+                    if (scanned) print b "\tcode-scanning\tstale-waiver\tdefault setup " setup ", workflow " wf ", which is what the row asks for"
+                    else print b "\tcode-scanning\twaived\tdefault setup " setup ", workflow " wf
+                    continue
+                  }
+                  if (scanned) continue
+                  if (setup ~ /^unread/ && wf ~ /^unread/) {
+                    print b "\tcode-scanning\tunjudged\tdefault setup " setup " and the workflow reading " wf
+                    continue
+                  }
+                  print b "\tcode-scanning\tshort\tdefault setup reports " setup " and no workflow present today calls github/codeql-action, so any analysis this board holds is a reading of the past"
+                }
+                for (k in w) {
+                  if (k in used) continue
+                  split(k, a, SUBSEP)
+                  if (a[1] in board) print a[1] "\t" a[2] "\tunused-waiver\tthe board was judged and this control was not among what it was judged on"
+                  else print a[1] "\t" a[2] "\toutside-the-population\tno board this run swept carries that name"
+                }
+              }
+            ' "$1" "$2" | LC_ALL=C sort
           }
 
           # ------------------------------------------------------------------
@@ -305,6 +493,151 @@ jobs:
                "$(next_link "$fx/h3")" \
                ""
 
+          # -------- the baseline row leg --------
+          rowed() { rows "$fx/conf" "$fx/waiv"; }
+          : > "$fx/waiv"
+          in_row() {
+            printf 'C\tiderex/a\tvisibility\tpublic\nC\tiderex/a\tarchived\tfalse\nC\tiderex/a\troster-visibility\tpublic\nC\tiderex/a\tdependabot-alerts\tenabled\nC\tiderex/a\tsecret-scanning\tenabled\nC\tiderex/a\tpush-protection\tenabled\nC\tiderex/a\tcode-scanning-setup\tconfigured\nC\tiderex/a\tcode-scanning-workflow\tnone-named\n' > "$fx/conf"
+          }
+
+          in_row
+          same "a public board at every control of its row is named nowhere" "$(rowed)" ""
+
+          in_row; sed -i 's/secret-scanning\tenabled/secret-scanning\tdisabled/' "$fx/conf"
+          same "a public board with secret scanning off is named" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tsecret-scanning\tshort')"
+
+          in_row; sed -i 's/push-protection\tenabled/push-protection\tdisabled/' "$fx/conf"
+          same "a public board with push protection off is named" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tpush-protection\tshort')"
+
+          # THE CASE THIS LEG EXISTS FOR. Code scanning goes off, the alerts
+          # endpoint stops answering, and the delta above is written to say
+          # nothing about it.
+          in_row; sed -i 's/code-scanning-setup\tconfigured/code-scanning-setup\tnot-configured/' "$fx/conf"
+          same "a public board whose code scanning is configured neither way is named" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tcode-scanning\tshort')"
+
+          in_row
+          sed -i 's/code-scanning-setup\tconfigured/code-scanning-setup\tnot-configured/' "$fx/conf"
+          sed -i 's/code-scanning-workflow\tnone-named/code-scanning-workflow\tpresent/' "$fx/conf"
+          same "an advanced setup satisfies the row where the default-setup endpoint reports nothing" \
+               "$(rowed)" ""
+
+          in_row
+          sed -i 's/code-scanning-setup\tconfigured/code-scanning-setup\tunread:403/' "$fx/conf"
+          sed -i 's/code-scanning-workflow\tnone-named/code-scanning-workflow\tunread:403/' "$fx/conf"
+          same "a code scanning reading that did not answer is unjudged and not a shortfall" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tcode-scanning\tunjudged')"
+
+          # THE PRIVATE ROW IS NOT THE PUBLIC ROW WITH THINGS MISSING. A private
+          # board reporting both Advanced Security features off is at its
+          # baseline, and naming it would open a finding on thirty-eight boards
+          # that are exactly where the baseline puts them.
+          printf 'C\tiderex/a\tvisibility\tprivate\nC\tiderex/a\tarchived\tfalse\nC\tiderex/a\troster-visibility\tprivate\nC\tiderex/a\tdependabot-alerts\tenabled\nC\tiderex/a\tsecret-scanning\tnot-reported\nC\tiderex/a\tpush-protection\tnot-reported\n' > "$fx/conf"
+          same "a private board with neither Advanced Security feature is at its baseline" "$(rowed)" ""
+
+          in_row; sed -i 's/roster-visibility\tpublic/roster-visibility\tprivate/' "$fx/conf"
+          same "a board that crossed rows with nobody recording it is named" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\t-\tcrossed-rows')"
+
+          in_row; sed -i 's/roster-visibility\tpublic/roster-visibility\tabsent/' "$fx/conf"
+          same "a roster record declaring no visibility is compared against nothing" "$(rowed)" ""
+
+          printf 'C\tiderex/a\tvisibility\tunread:403\n' > "$fx/conf"
+          same "a board whose visibility did not answer is unjudged rather than clean" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\t-\tunjudged')"
+
+          in_row; sed -i 's/archived\tfalse/archived\ttrue/' "$fx/conf"
+          same "an archived board is named as archived and judged against no row" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\t-\tarchived')"
+
+          in_row; sed -i 's/dependabot-alerts\tenabled/dependabot-alerts\tdisabled/' "$fx/conf"
+          same "Dependabot alerts off is a shortfall in the public row" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tdependabot-alerts\tshort')"
+
+          printf 'C\tiderex/a\tvisibility\tprivate\nC\tiderex/a\tarchived\tfalse\nC\tiderex/a\troster-visibility\tprivate\nC\tiderex/a\tdependabot-alerts\tdisabled\n' > "$fx/conf"
+          same "Dependabot alerts off is a shortfall in the private row too" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tdependabot-alerts\tshort')"
+
+          # THE WAIVER, IN THREE DIRECTIONS: it holds a shortfall out, it is
+          # named when the shortfall it was written for has gone, and it is named
+          # when it holds nothing out at all.
+          in_row; sed -i 's/secret-scanning\tenabled/secret-scanning\tdisabled/' "$fx/conf"
+          printf 'W\tiderex/a\tsecret-scanning\n' > "$fx/waiv"
+          same "a recorded reason turns a shortfall into a waived reading" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tsecret-scanning\twaived')"
+
+          in_row
+          same "a waiver for a control the board now satisfies is named as stale" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tsecret-scanning\tstale-waiver')"
+
+          printf 'W\tiderex/a\tcode-scanning\n' > "$fx/waiv"
+          in_row; sed -i 's/code-scanning-setup\tconfigured/code-scanning-setup\tnot-configured/' "$fx/conf"
+          same "a waived code scanning shortfall is held out" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tcode-scanning\twaived')"
+          in_row
+          same "a code scanning waiver on a board that scans is named as stale" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tcode-scanning\tstale-waiver')"
+
+          printf 'W\tiderex/a\tsecret-scanning\n' > "$fx/waiv"
+          printf 'C\tiderex/a\tvisibility\tprivate\nC\tiderex/a\tarchived\tfalse\nC\tiderex/a\troster-visibility\tprivate\nC\tiderex/a\tdependabot-alerts\tenabled\n' > "$fx/conf"
+          same "a waiver on a control the board's row never asks for is named as unused" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/a\tsecret-scanning\tunused-waiver')"
+
+          printf 'W\tiderex/elsewhere\tcode-scanning\n' > "$fx/waiv"
+          in_row
+          same "a waiver for a board outside the swept population says so" \
+               "$(rowed | cut -f1-3)" \
+               "$(printf 'iderex/elsewhere\tcode-scanning\toutside-the-population')"
+          : > "$fx/waiv"
+
+          # THE REGISTER READER.
+          printf '### `iderex/a` - a reason\n\nReason: something.\nWaives: code-scanning\nExpires when: never.\n' > "$fx/page"
+          same "an entry naming one board and one control is a waiver" \
+               "$(waivers_from "$fx/page")" \
+               "$(printf 'W\tiderex/a\tcode-scanning')"
+
+          printf '### `iderex/a`, `iderex/b` - one reason for two boards\n\nWaives: code-scanning, secret-scanning\n' > "$fx/page"
+          same "an entry naming two boards and two controls waives all four" \
+               "$(waivers_from "$fx/page")" \
+               "$(printf 'W\tiderex/a\tcode-scanning\nW\tiderex/a\tsecret-scanning\nW\tiderex/b\tcode-scanning\nW\tiderex/b\tsecret-scanning')"
+
+          printf '## The private boards - the baseline, not an exception\n\nNothing is recorded here for them.\n\n### `iderex/a`, `iderex/b`, `iderex/c` - the entry that expired\n\nAll three now carry analyses.\n' > "$fx/page"
+          same "a heading with no Waives line waives nothing, expired entries included" \
+               "$(waivers_from "$fx/page")" ""
+
+          printf '### A heading naming a `path/in/backticks` and no board\n\nWaives: code-scanning\n' > "$fx/page"
+          same "a Waives line under a heading naming no board keeps no subject" \
+               "$(waivers_from "$fx/page")" \
+               "$(printf 'W\t-\tcode-scanning')"
+          same "a waiver with no subject is refused" \
+               "$(boardless_waivers <(waivers_from "$fx/page"))" \
+               "code-scanning"
+          same "a waiver with a subject is not refused for having none" \
+               "$(printf 'W\tiderex/a\tcode-scanning\n' > "$fx/w1"; boardless_waivers "$fx/w1")" ""
+
+          printf 'W\tiderex/a\tzizmor\n' > "$fx/w1"
+          same "a waiver naming a control this leg does not judge is refused" \
+               "$(unknown_controls "$fx/w1")" "zizmor"
+          printf 'W\tiderex/a\tcode-scanning\nW\tiderex/a\tsecret-scanning\nW\tiderex/a\tpush-protection\nW\tiderex/a\tdependabot-alerts\n' > "$fx/w1"
+          same "every control the leg judges is accepted by name" \
+               "$(unknown_controls "$fx/w1")" ""
+
           if [ "$self_test" != "0" ]; then
             echo "::error::the fixtures failed, so this run judges nothing"
             exit 1
@@ -344,6 +677,29 @@ jobs:
 
           today=$(mktemp)
           baseline=$(mktemp)
+          config=$(mktemp)
+          waivers=$(mktemp)
+          : > "$config"
+
+          # -------- the register, read before anything is swept --------
+          # It is a tree read and it refuses, so it fails before 73 boards are
+          # asked anything rather than after.
+          if [ ! -f "$BASELINE_PAGE" ]; then
+            echo "::error::$BASELINE_PAGE is not in this checkout, so the baseline this sweep judges against and the register of recorded reasons are both unreadable. Refusing rather than judging every board against a row it read nowhere."
+            exit 1
+          fi
+          waivers_from "$BASELINE_PAGE" > "$waivers"
+          bad=$(unknown_controls "$waivers")
+          if [ -n "$bad" ]; then
+            echo "::error::the register in $BASELINE_PAGE waives control(s) this leg does not judge: $(printf '%s' "$bad" | tr '\n' ' '). A waiver against a control nothing reads holds nothing out while reading as though it did."
+            exit 1
+          fi
+          bad=$(boardless_waivers "$waivers")
+          if [ -n "$bad" ]; then
+            echo "::error::the register in $BASELINE_PAGE carries a Waives: line under a heading that names no board, for control(s): $(printf '%s' "$bad" | tr '\n' ' '). A waiver with no subject cannot be held against anything."
+            exit 1
+          fi
+          echo "register: $(grep -c . "$waivers" || true) waiver(s) read from $BASELINE_PAGE"
           # THE ROSTER IS ACCUMULATED IN A FILE AND NOT IN A VARIABLE. Appending
           # with `v=$(printf '%s...' "$v" ...)` drops the trailing newline on
           # every round, because that is what command substitution does, so the
@@ -384,11 +740,17 @@ jobs:
               owner=$(grep -m1 '^Owner: ' "$body" | sed 's/^Owner: //' | tr -d '\r' || true)
               name=$(grep -m1 '^Id: ' "$body" | sed 's/^Id: //' | tr -d '\r' || true)
               writer=$(grep -m1 '^Writers: ' "$body" | sed 's/^Writers: //' | tr -d '\r' | cut -d, -f1 || true)
+              # THE RECORD'S OWN VISIBILITY IS CARRIED AND NEVER USED AS THE ROW.
+              # It is the register's claim about the board, and the baseline leg
+              # compares it against what the board reports rather than trusting
+              # either. A record that declares none is `absent` and is compared
+              # against nothing.
+              rvis=$(grep -m1 '^Visibility: ' "$body" | sed 's/^Visibility: //' | tr -d '\r' || true)
               if [ -z "$owner" ] || [ -z "$name" ]; then
                 echo "::error::the roster record $rec declares no Owner or no Id, so the board it names cannot be addressed. Refusing."
                 exit 1
               fi
-              printf '%s/%s\t%s\n' "$owner" "$name" "${writer:-$owner}" >> "$boardsfile"
+              printf '%s/%s\t%s\t%s\n' "$owner" "$name" "${writer:-$owner}" "${rvis:-absent}" >> "$boardsfile"
             done <<< "$records"
             echo "roster: $(grep -c . "$boardsfile") board(s) read from $ROSTER_REPO/$ROSTER_PATH"
 
@@ -406,9 +768,9 @@ jobs:
               fi
             fi
 
-            # -------- the alerts --------
+            # -------- the alerts, and the configuration beside them --------
             unread_pairs=0
-            while IFS=$'\t' read -r board writer; do
+            while IFS=$'\t' read -r board writer rvis; do
               [ -n "$board" ] || continue
               for kind in code-scanning dependabot secret-scanning; do
                 pages=0
@@ -443,8 +805,79 @@ jobs:
                 fi
                 rm -f "$counts"
               done
+
+              # -------- the configuration this board is in --------
+              printf 'C\t%s\troster-visibility\t%s\n' "$board" "${rvis:-absent}" >> "$config"
+              c=$(req GET "https://api.github.com/repos/$board" "$SWEEP_TOKEN")
+              if [ "$c" = "200" ]; then
+                vis=$(jq -r '.visibility' < "$body")
+                arch=$(jq -r '.archived | tostring' < "$body")
+                # `security_and_analysis` is absent on a board the token cannot
+                # see the settings of, and `not-reported` is that absence rather
+                # than a feature that is off. On the public row it is short of
+                # `enabled` either way, and the detail says which it was.
+                ss=$(jq -r '.security_and_analysis.secret_scanning.status // "not-reported"' < "$body")
+                pp=$(jq -r '.security_and_analysis.secret_scanning_push_protection.status // "not-reported"' < "$body")
+              else
+                vis=$(state_for "$c"); arch="$vis"; ss="$vis"; pp="$vis"
+              fi
+              printf 'C\t%s\tvisibility\t%s\nC\t%s\tarchived\t%s\nC\t%s\tsecret-scanning\t%s\nC\t%s\tpush-protection\t%s\n' \
+                     "$board" "$vis" "$board" "$arch" "$board" "$ss" "$board" "$pp" >> "$config"
+
+              # DEPENDABOT IS ASKED ON THE ENDPOINT THAT ANSWERS YES OR NO. The
+              # alerts endpoint the leg above walks refuses a board with the
+              # feature off and a board the token cannot reach with codes that do
+              # not separate the two, and `security_and_analysis` does not carry
+              # the alert switch at all. This one is documented to answer 204
+              # when vulnerability alerts are enabled and 404 when they are not.
+              c=$(req GET "https://api.github.com/repos/$board/vulnerability-alerts" "$SWEEP_TOKEN")
+              case "$c" in
+                204) da=enabled ;;
+                404) da=disabled ;;
+                *)   da=$(state_for "$c") ;;
+              esac
+              printf 'C\t%s\tdependabot-alerts\t%s\n' "$board" "$da" >> "$config"
+
+              # CODE SCANNING IS ASKED FOR ONLY WHERE A ROW ASKS FOR IT. The
+              # private row asks for neither Advanced Security feature, so
+              # reading them there would spend 39 requests to record a state no
+              # rule judges.
+              if [ "$vis" = "public" ] && [ "$arch" != "true" ]; then
+                c=$(req GET "https://api.github.com/repos/$board/code-scanning/default-setup" "$SWEEP_TOKEN")
+                if [ "$c" = "200" ]; then setup=$(jq -r '.state' < "$body"); else setup=$(state_for "$c"); fi
+
+                # THE WORKFLOW IS FOUND THROUGH AN ANALYSIS AND THEN READ IN THE
+                # PRESENT. An advanced setup reports `not-configured` on the
+                # endpoint above and scans anyway, so the endpoint alone would
+                # name every board that configures CodeQL its own way. The
+                # analysis names the workflow that produced it, which is the
+                # past; whether that file is on the board today, and still calls
+                # `github/codeql-action`, is the present, and only the second one
+                # decides the row.
+                wf="none-named"
+                c=$(req GET "https://api.github.com/repos/$board/code-scanning/analyses?per_page=30" "$SWEEP_TOKEN")
+                if [ "$c" != "200" ]; then
+                  wf=$(state_for "$c")
+                else
+                  key=$(jq -r '[.[] | .analysis_key | select(startswith(".github/workflows/"))] | first // ""' < "$body")
+                  if [ -n "$key" ]; then
+                    wpath=${key%%:*}
+                    c=$(req GET "https://api.github.com/repos/$board/contents/$wpath" "$SWEEP_TOKEN")
+                    if [ "$c" != "200" ]; then
+                      wf="absent"
+                    elif jq -r '.content // ""' < "$body" | tr -d '\n' | base64 -d 2>/dev/null | grep -q 'github/codeql-action'; then
+                      wf="present"
+                    else
+                      wf="absent"
+                    fi
+                  fi
+                fi
+                printf 'C\t%s\tcode-scanning-setup\t%s\nC\t%s\tcode-scanning-workflow\t%s\n' \
+                       "$board" "$setup" "$board" "$wf" >> "$config"
+              fi
             done < "$boardsfile"
             echo "reading: $(grep -c '^A' "$today" || true) rule line(s) over $(grep -c '^S' "$today" || true) pair(s), $unread_pairs of them unread"
+            echo "configuration: $(grep -c '^C' "$config" || true) control reading(s)"
 
             # -------- the previous reading --------
             prev_run=""
@@ -489,6 +922,12 @@ jobs:
           fi
 
           cp "$today" reading.tsv
+          # The configuration is kept beside the reading rather than compared
+          # against yesterday's: a row is judged against what the page declares,
+          # not against what the board was last week. It is kept so that a run's
+          # verdict can be re-read afterwards from the same bytes that produced
+          # it.
+          cp "$config" config.tsv
 
           # ------------------------------------------------------------------
           # The judgement.
@@ -529,6 +968,37 @@ jobs:
               echo '```'
             else
               echo "none."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # ------------------------------------------------------------------
+          # The baseline rows. A seeded run reads no board, so it has no
+          # configuration to judge and says so rather than judging an empty one.
+          # ------------------------------------------------------------------
+          named=$(mktemp)
+          : > "$named"
+          if [ "$seeded" = "0" ]; then
+            rows "$config" "$waivers" > "$named"
+          fi
+          short_n=$(awk -F'\t' '$3 == "short"' "$named" | grep -c . || true)
+          echo "baseline: $short_n board-control(s) short of a row, $(grep -c . "$named" || true) line(s) named in all"
+
+          {
+            echo
+            echo "## Baseline rows"
+            echo
+            if [ "$seeded" = "1" ]; then
+              echo "**Seeded run.** No board was read, so no configuration was judged."
+            else
+              echo "The rows are declared in \`$BASELINE_PAGE\` and the register of recorded reasons is read out of the same page. A board named \`short\` is outside its own row with no recorded reason; \`unjudged\` is a reading that did not answer and is not a board that is clean."
+              echo
+              echo "| board | control | verdict | reading |"
+              echo "| --- | --- | --- | --- |"
+              if grep -q . "$named"; then
+                awk -F'\t' '{ print "| " $1 " | " $2 " | " $3 " | " $4 " |" }' "$named"
+              else
+                echo "| _every board swept is in its row_ | | | |"
+              fi
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -651,6 +1121,12 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: alert-reading
-          path: reading.tsv
+          # `reading.tsv` is the one the next run compares against and is read
+          # back by name on download. `config.tsv` is this run's configuration
+          # reading, kept so the baseline verdict above can be re-derived rather
+          # than only re-read.
+          path: |
+            reading.tsv
+            config.tsv
           retention-days: 90
           if-no-files-found: error
