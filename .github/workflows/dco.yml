@@ -54,12 +54,18 @@ on:
         description: >-
           Bot author addresses whose commits are skipped, one per line. A bot
           cannot certify its own work under the DCO, so its commits are skipped
-          as the DCO App skips them. Each entry is matched exactly and against
-          the `<id>+<entry>` form GitHub mints, never as a `*[bot]@...` glob, so
-          a human cannot self-exempt by crafting a `[bot]`-shaped author
-          address. Widen this only for an identity you can point at a
-          configuration for: an exemption whose actor nothing starts is an open
-          route nobody is watching.
+          as the DCO App skips them. Each entry is matched exactly, and against
+          the `<id>+<entry>` form GitHub mints, where the `<id>` is digits and
+          nothing else - never as a `*[bot]@...` glob and never with a local
+          part of the caller's choosing, so
+          `attacker+dependabot[bot]@users.noreply.github.com` is refused.
+          WHAT THAT DOES NOT DO IS STOP SELF-EXEMPTION, and this input does not
+          claim to. A git author address is a field typed by whoever commits,
+          so anyone who types an exempted address exactly is skipped, and
+          nothing here reads which account opened the pull request. Widen this
+          only for an identity you can point at a configuration for: an
+          exemption whose actor nothing starts is an open route nobody is
+          watching.
         type: string
         default: 'dependabot[bot]@users.noreply.github.com'
         required: false
@@ -138,17 +144,33 @@ jobs:
             printf '%s' "$1" | grep -qE '^[^[:space:]<>@]+@[^[:space:]<>@.]+(\.[^[:space:]<>@.]+)+$'
           }
 
-          # An entry matches the address itself or GitHub's `<id>+<entry>` form.
-          # The entry is expanded inside quotes in the pattern, so `[bot]` is
-          # five literal characters and not a bracket expression.
+          # An entry matches the address itself, or GitHub's `<id>+<entry>`
+          # form, in which the `<id>` is the digits the platform mints and not
+          # a local part anybody may choose. The entry is expanded inside
+          # quotes in the pattern, so `[bot]` is five literal characters and
+          # not a bracket expression.
+          #
+          # THE DIGITS ARE THE LEG. Without them the second pattern is
+          # `*"+$entry"`, whose `*` is any local part at all, and under the
+          # shipped default `attacker+dependabot[bot]@users.noreply.github.com`
+          # was exempt - which is the whole of issue #49. Delete the inner
+          # `case` and the three `must_not_exempt` fixtures below turn the run
+          # red.
           is_exempt() {
-            local address=$1 entry
+            local address=$1 entry id
             while IFS= read -r entry; do
               entry="${entry#"${entry%%[![:space:]]*}"}"
               entry="${entry%"${entry##*[![:space:]]}"}"
               [ -n "$entry" ] || continue
               case "$address" in
-                "$entry" | *"+$entry") return 0 ;;
+                "$entry") return 0 ;;
+                *"+$entry")
+                  id=${address%"+$entry"}
+                  case "$id" in
+                    '' | *[!0-9]*) ;;
+                    *) return 0 ;;
+                  esac
+                  ;;
               esac
             done <<< "${EXEMPT_AUTHORS:-}"
             return 1
@@ -274,6 +296,14 @@ jobs:
           must_not_exempt "a bot-shaped human address is not"   'dependabot[bot]@example.org'
           must_not_exempt "a bot outside the list is not"       'github-actions[bot]@users.noreply.github.com'
           must_not_exempt "an ordinary author is not"           "$address"
+          # THE NEAR MISS IS ONE CHARACTER CLASS WIDE, so the three below are
+          # the ones worth the lines. Each was exempt under the shipped default
+          # until #49, and the last is the one somebody would actually write: a
+          # local part that opens with the digits of a real id and then stops
+          # being one.
+          must_not_exempt "a chosen local part is not an id"    'attacker+dependabot[bot]@users.noreply.github.com'
+          must_not_exempt "an empty id is not an id"            '+dependabot[bot]@users.noreply.github.com'
+          must_not_exempt "digits then a word is not an id"     '4970attacker+dependabot[bot]@users.noreply.github.com'
 
           probe=$(mktemp -d)
           trap 'rm -rf "$probe"' EXIT
