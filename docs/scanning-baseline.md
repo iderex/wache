@@ -311,13 +311,15 @@ detected language. All three now carry analyses and `iderex/Typeset` reports
 true on 27 August, stopped being true on 28 August, and was found by re-running
 the sweep rather than by re-reading the sentence.
 
-WHAT THE EXPIRED ENTRY WAS RIGHT ABOUT IS STILL OPEN. The baseline puts `zizmor`
-over the workflow surface, and the workflow surface is most of what these three
-boards are. A CodeQL analysis at `/language:actions` is not that scan, this
-board runs no `zizmor` today, and no board's `zizmor` state is read anywhere in
-this page. The roster record for this board already says it carries none of the
-five universal guards yet, and that is the same absence read from the other
-side.
+WHAT THE EXPIRED ENTRY WAS RIGHT ABOUT IS STILL OPEN, AND ONE CLAUSE OF IT WAS
+NOT A FACT. It said the baseline puts `zizmor` over the workflow surface.
+Whether it does is undecided, `## What is not covered here` below is where that
+is recorded, and nothing in this section decides it. What holds either way: the
+workflow surface is most of what these three boards are, a CodeQL analysis at
+`/language:actions` is not a `zizmor` scan, this board runs no `zizmor` today,
+and no board's `zizmor` state is read anywhere in this page. The roster record
+for this board already says it carries none of the five universal guards yet,
+and that is the same absence read from the other side.
 
 ## What reads this page
 
@@ -394,10 +396,36 @@ and no board short of any of the four controls.
   and nothing finer, and reading it either way changes what `#32` still owes, so
   it is left as the open question it is rather than settled by whichever reading
   makes a done-condition easier. The update half is `#24` either way.
-- `zizmor` is in the public row of the baseline, no board's state for it is read
-  anywhere in this repository, and the leg above does not judge it. A `Waives:`
-  line naming it would refuse the run rather than be ignored, which is the
-  register failing closed on a control nothing reads.
+- WHETHER `zizmor` IS IN THE PUBLIC ROW AT ALL IS NOT DECIDED, AND THIS BULLET
+  ASSERTED THAT IT IS. The row this page states names three controls and
+  `zizmor` is not among them, derived rather than pasted so the figure cannot
+  drift against the row it is about:
+
+      git show origin/main:docs/scanning-baseline.md |
+        sed -n '/^\*\*Public boards\./,/^$/p' | grep -c zizmor
+      0
+
+  Two decisions stand on `#32` and they differ on exactly this. The first names
+  `zizmor`; the second is the two-row restatement that `## The baseline` above
+  cites as the decision it records, and it does not:
+
+      gh issue view 32 --repo iderex/wache --json comments \
+        --jq '.comments[] | select(.body | test("(?i)^(decision|deciding)"))
+              | [(.body|test("zizmor")), (.body|.[0:52])] | @tsv'
+      true    Decision: the baseline is CodeQL plus secret scannin
+      false   Deciding the baseline. The standing rule is that not
+
+  The second does not say `zizmor` is dropped either, so this is a question
+  nobody has answered rather than one this page may answer. Reading it either
+  way changes what `#32` still owes, and picking the reading that makes a
+  done-condition easier is the one thing a correction may not do. It is left
+  open here for the same reason the Dependabot bullet above is.
+- WHAT IS TRUE WHICHEVER WAY THAT QUESTION GOES: no board's `zizmor` state is
+  read anywhere in this repository, and the leg above does not judge it. A
+  `Waives:` line naming it would refuse the run rather than be ignored, which is
+  the register failing closed on a control nothing reads. What that absence
+  MEANS is what the question decides - a shortfall on every public board if
+  `zizmor` is in the row, and nothing to read if it is not.
 - Whether a board that reports `analyses present` analyses the whole tree, or
   which languages its analysis covers. The endpoint says an analysis exists.
 - THE FIGURES ABOVE STILL COME FROM COMMANDS SOMEBODY CHOSE TO RUN, and this
