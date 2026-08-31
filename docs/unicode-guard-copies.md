@@ -6,6 +6,15 @@ Taken on 27 August 2026 against the roster in `iderex/operations`, at
 whenever a board lands anything; re-run the commands rather than citing this
 page.
 
+A SECOND READING WAS TAKEN ON 31 AUGUST 2026 against the roster at
+`iderex/operations` `origin/main`
+`66f3e6a3fe24f165f16f75b196431b170405d2ab`, and `## Who calls what today` below
+is the one section it replaces. It was taken because the command that section
+printed had stopped producing the count printed beside it, which that section
+now says in its own words. Every other section here is the 27 August reading and
+is untouched: the copy counts, the refusal patterns and the three differences
+were not re-read, so nothing above that section is asserted as today's state.
+
 `#28` says of its own counts that they are a byte comparison, and lists as not
 evaluated whether the 34 distinct contents differ in what they refuse or only in
 how they say it. This is that reading. It is the question a board has to answer
@@ -93,33 +102,87 @@ now measured on this file. Neither is drift.
 
 ## Who calls what today
 
+THE COMMAND THIS SECTION PRINTED NO LONGER PRODUCES THE COUNT PRINTED BESIDE IT,
+AND THE COUNT WAS RIGHT ON THE DAY IT WAS WRITTEN. Those are two statements and
+this section keeps them apart. What stood here was a `gh search code` query
+answered by "seventeen boards, every one through
+`.github/workflows/shared-hygiene.yml`". Run on 31 August 2026 the same query
+returns three repositories, two of which are boards:
+
     gh search code "iderex/wache/.github/workflows" --limit 100 \
       --json repository,path --jq '.[] | "\(.repository.nameWithOwner)\t\(.path)"' |
       sort -u
+    iderex/messstube    .github/workflows/shared-hygiene.yml
+    iderex/pruefstand   .github/workflows/shared-hygiene.yml
+    iderex/wache        .github/workflows/calling-examples.yml
+    iderex/wache        docs/unicode-guard-copies.md
+    iderex/wache        README.md
 
-Seventeen boards, every one through `.github/workflows/shared-hygiene.yml`. No
-`uses:` line in any of the seventeen names `unicode-guard.yml`:
+So anybody who re-ran the command beside the old count read a fleet that had
+almost stopped calling this board. What the index does with a file that has not
+changed recently is not read here and no mechanism for it is asserted. The
+repair is to stop asking the index, because a reading nobody can reproduce is
+the defect whatever the answer turns out to be.
 
-    grep -c 'uses:.*unicode-guard' <the seventeen>
-    0
+READ OFF THE TREES INSTEAD. Every file in every roster board's
+`.github/workflows/` fetched and searched for a reference to this board:
 
-One of the seventeen mentions the file name in a comment about its own local
-copy, which is why a plain grep for the string returns one hit and a grep for a
-call returns none.
+    gh api "repos/$b/contents/.github/workflows" --jq '.[]|select(.type=="file")|.path' |
+    while IFS= read -r p; do
+      gh api "repos/$b/contents/$p" --jq '.content' | base64 -d |
+        grep -nE 'iderex/wache/\.github/workflows/[A-Za-z0-9._-]+\.yml'
+    done
 
-All seventeen keep a local `unicode-guard.yml` beside the call, against sixteen
-of seventeen for `pr-hygiene.yml`:
+    73 boards, of which 1 has no .github/workflows directory
+    902 files, 902 read
+    20 references to iderex/wache/.github/workflows/pr-hygiene.yml, all on uses: lines
+     1 reference to iderex/wache/.github/workflows/unicode-guard.yml, on a uses: line
 
-    awk -F'\t' '$2=="shared-hygiene.yml"{s[$1]=1} $2=="unicode-guard.yml"{u[$1]=1}
-                END{n=0; for(b in s) if(b in u) n++; print n}' inventory.tsv
-    17
+THE ONE `unicode-guard.yml` REFERENCE IS THIS BOARD'S OWN
+`.github/workflows/calling-examples.yml`, so no board outside this one calls the
+shared guard. One of the twenty `pr-hygiene.yml` references is that same file,
+so nineteen other boards call the hygiene check, every one of them through
+`.github/workflows/shared-hygiene.yml`. The count this section used to carry was
+seventeen; which two boards account for the move is not read here, because the
+seventeen were never named in this page and there is nothing to subtract them
+from. What is read is that `iderex/messstube` and `iderex/pruefstand` are among
+the nineteen and are the only two boards the stale index still returns.
 
-And the pins those seventeen carry:
+WHERE THIS READING STOPS, and these are different bounds from the ones it
+replaces. It covers the whole roster and every workflow file on it, which the
+search did not. Six files answered nothing on the first pass and were re-read
+rather than counted as carrying no reference. `iderex/lagetisch` has no
+`.github/workflows` directory at all: the contents API answers 404, `gh` writes
+that body to stdout, and the board is named here rather than counted as one with
+no call - the same trap `docs/dependabot-across-the-boards.md` records against a
+different endpoint. And the subject is the full
+`iderex/wache/.github/workflows/<file>.yml` form, so a bare mention of a file
+name in a comment is outside it, which is what the sentence this section used to
+carry about one board's own comment was about.
 
-    grep -hoE 'iderex/wache/\.github/workflows/pr-hygiene\.yml@[0-9a-f]+ # v[0-9.]+' |
-      grep -oE 'v[0-9.]+$' | sort | uniq -c
-    12 v1.0.0
-     5 v1.2.0
+Local copies beside the call, counted off the same listing rather than fetched
+again:
+
+    63 boards hold a local .github/workflows/unicode-guard.yml
+    34 boards hold a local .github/workflows/pr-hygiene.yml
+    19 of the 19 callers keep a local unicode-guard.yml
+    17 of the 19 callers keep a local pr-hygiene.yml
+
+It was seventeen of seventeen and sixteen of seventeen on 27 August, so both
+moved with the two new callers and neither changed shape: a board that calls the
+hygiene check still keeps its own unicode guard, without exception.
+
+And the pins those nineteen carry:
+
+    gh api "repos/$b/contents/.github/workflows/shared-hygiene.yml" --jq '.content' |
+      base64 -d |
+      grep -oE 'iderex/wache/\.github/workflows/pr-hygiene\.yml@[0-9a-f]+[[:space:]]*#[[:space:]]*v[0-9.]+'
+
+    13 v1.0.0    @9b311243c2d0d0ced7feb957a20bc178acce6a5d
+     6 v1.2.0    @113085b269d3437a3f96ff9e7060b64b0af88ab1
+
+Nineteen of nineteen carry a version comment beside the sha, and each tag name
+appears against exactly one commit.
 
 ## What a first caller has to carry
 
