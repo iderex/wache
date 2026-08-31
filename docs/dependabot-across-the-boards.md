@@ -248,3 +248,55 @@ board taking the copy moves that line by one board and does not meet it.
 WHAT OPENS AN ISSUE ON A DRIFTED BOARD IS THE SWEEP AND NOT THIS PAGE. `#31` is
 where that sweep lives, this board writes into no other tree, and nothing in
 this repository runs the comparison above on a schedule today.
+
+## The reading on 31 August, and the population grew outside the contract
+
+Re-read against the roster at `iderex/operations` `origin/main`
+`66f3e6a3fe24f165f16f75b196431b170405d2ab`, with the same sha-validated command
+the first section uses:
+
+    61 absent
+    12 present, and 12 distinct blob ids
+
+The section above returns 64 absent and nine present on 29 August, and this
+board made the tenth. Two more boards carry the file now, `Flowfin/core` and
+`Flowfin/jellyfin-plugin-watchlist`, and the contract lines were read off every
+one of the twelve rather than off the two:
+
+    sed -n 's/^#   \(origin\|taken-at\): *//p' <each copy>
+
+    iderex/wache      iderex/wache templates/dependabot.yml
+                      a637780d22d9472988fc5c330643de63b4e5e68a
+    the other eleven  neither line
+
+One copy of twelve names an origin and a commit, and it is this board's. So the
+third state this page describes - not up to date, not drifted, unjudged - covers
+eleven boards where it covered nine, and the two files that arrived after the
+template landed arrived outside it.
+
+What the two new ones differ by, with the canonical side supplied by hand
+because neither names a commit to resolve:
+
+    Flowfin/core                        11 differing line(s)  cargo, github-actions
+    Flowfin/jellyfin-plugin-watchlist   14 differing line(s)  github-actions, nuget
+
+THE DIRECTION IS WHAT TO READ HERE AND IT IS NOT THE COUNT. Over the window in
+which this board held a canonical file and a contract for copying it, no board
+outside this one took either, and the population of files that contract is meant
+to govern grew by two. That is a reading of the state and not a claim about why:
+what would put the template in front of a board writing its own file is a leg
+that measures drift and opens an issue on the board, and nothing in this
+repository does that today.
+
+    grep -c -i 'templates/dependabot\|dependabot-across-the-boards\|taken-at' \
+      .github/workflows/fleet-alert-sweep.yml
+    0
+
+The scheduled sweep this board runs reads alert counts and the scanning
+baseline. It does not read this page, the template, or a copy's contract lines,
+which is `#31`'s sweep having a different subject rather than a defect in it.
+
+WHAT THIS READING DOES NOT COVER. Whether any of the eleven files without the
+contract has changed content since 29 August; blob ids were compared within this
+reading and not against the earlier one. And why the two new boards configured an
+updater, which is their own decision and is written nowhere this page can read.
