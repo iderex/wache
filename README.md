@@ -88,10 +88,13 @@ nothing.
 
 ### If you are deleting a local copy of this check
 
-Sixteen boards call this check and keep their own `pr-hygiene.yml` beside it.
-Reading those sixteen files found five answers this check had no form of, and
-three of them would turn work that passes on those boards today into work that
-is refused the day the local file goes. What this check has a form of now is the
+Eighteen of the nineteen boards that call this check keep a gate of their own
+beside it, and `iderex/lesesaal` is the only one that does not. Seventeen of the
+eighteen keep it as `pr-hygiene.yml`; `iderex/pruefstand` keeps it as
+`hygiene.yml`, which is why a board answering "we have no local copy" should
+check the file rather than the filename. Reading the copies found five answers
+this check had no form of, and three of them would turn work that passes on
+those boards today into work that is refused the day the local file goes. What this check has a form of now is the
 list of inputs below rather than a count written here; `ready_for_review` is a
 trigger you declare and not an input; and one answer is decided NOT to come here
 at all, which is the `Scope:` path comparison at the end of this section. The
@@ -101,6 +104,42 @@ reading is `#27` and the two answers that need the caller's permission are
 READ YOUR OWN COPY BEFORE YOU DELETE IT and carry its answer across in the same
 change, where a reader can see it. Every default below is what this check
 already did, so a board that adds nothing moves nowhere.
+
+READ YOUR RULESET TOO, BECAUSE THE DELETE CAN STRAND A REQUIRED CHECK. If your
+branch ruleset requires the status check your local file produces, deleting the
+file leaves a required context that will never be reported again, and a required
+check that never reports leaves every pull request PERMANENTLY PENDING rather
+than red - nothing merges and nothing says why. Two boards are in that position
+today:
+
+```
+$ gh api "repos/$BOARD/rulesets" --jq '.[].id' | while read -r id; do
+    gh api "repos/$BOARD/rulesets/$id" --jq '[.rules[]? |
+      select(.type=="required_status_checks") |
+      .parameters.required_status_checks[]?.context] | join(",")'
+  done
+iderex/hoersaal     ... ,pr-hygiene, ...
+iderex/stammtisch   ... ,Deterministic PR-hygiene checks, ...
+```
+
+THIS CHECK PRODUCES NEITHER OF THOSE NAMES, and the near miss is the part to
+read slowly:
+
+```
+$ git show origin/main:.github/workflows/pr-hygiene.yml | sed -n '142p'
+    name: Deterministic PR hygiene
+```
+
+`Deterministic PR hygiene` is one hyphen and one word away from a required
+`Deterministic PR-hygiene checks`, and a required context is matched by its
+literal name. A called workflow's check run also arrives as
+`<your caller's job id> / <the job name above>`, so even an exact match would
+not land unprefixed. Do not assume the names line up; run the command.
+
+So on a board whose ruleset names its local check, the ruleset edit belongs in
+the same change as the delete: take the old context out and put the one your
+caller actually produces in, read off a run rather than typed. The reading
+behind this is `docs/local-hygiene-answers.md` and the issue is `#27`.
 
 ```yaml
 on:
@@ -237,6 +276,16 @@ way. One board carrying an answer is not seventeen boards asking for one, and a
 shared answer nobody asked for is inventory. That board keeps its local answer;
 if a shared route is ever justified it arrives as its own issue naming at least
 three boards that asked. The decision is on `#36`.
+
+THE DECISION IS UNCHANGED AND THE COUNT IT RECITES IS NOT THE COUNT TODAY, and a
+reader who takes "one board" for the present state is reading a sentence written
+on 28 August. Five boards hold the comparison: `iderex/stammtisch`,
+`Flowfin/core`, `iderex/hallraum`, `iderex/lehrkanzel` and `iderex/pruefstand`,
+of which four call this check. Three were found by the reading on `#27` and two
+more by `docs/local-hygiene-answers.md`, which also says why the earlier sweeps
+could not see them. Nothing here re-opens `#36`: a board holding an answer and a
+board asking for a shared one are different statements, and this corrects the
+first without asserting the second.
 
 The unicode guard is called the same way, and needs its own triggers because it
 reads the tree rather than the pull request:
