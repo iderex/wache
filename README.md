@@ -130,8 +130,15 @@ hash matters here more than anywhere else in this file.
 `subject_exempt_authors` is the automation exemption three boards hold. Without
 it a board that deletes its copy starts refusing its own dependency-update pull
 requests, because a bot cannot name an issue it does not know about. It is an
-allowlist of addresses and not a `*[bot]@...` glob, so a human cannot exempt
-themselves by choosing an author address.
+allowlist of addresses and not a `*[bot]@...` glob.
+
+THE ALLOWLIST IS LOOSER AT THE COMMIT THIS EXAMPLE PINS THAN IT IS ON `main`,
+and the sentence that stood here said flatly that a human could not exempt
+themselves by choosing an author address. At `v1.3.0` an entry matches the whole
+`<id>+<entry>` form GitHub mints without asking what the `<id>` is, so any local
+part in front of a listed address is exempt; on `main` the `<id>` has to be
+digits. That is `#55`, and `## Versions` below carries the reading, the two
+commands behind it and what it costs a board today.
 
 `outside_contributions_exempt` waives the subject rule for a fork or for an
 author who is not an owner, member or collaborator. On a board that takes
@@ -292,7 +299,9 @@ somebody else's.
 `exempt_authors` defaults to `dependabot[bot]` alone. Widen it only for an
 identity you can point at a configuration for. An exemption whose actor nothing
 starts is an open route nobody is watching, and one board had already narrowed
-its own copy for exactly that reason.
+its own copy for exactly that reason. At the commit this example pins it carries
+the same looseness as `subject_exempt_authors` above, for the same reason and
+with the same repair unreleased, which is `#49` and `## Versions` below.
 
 THE GATE HAS EXECUTED ON A RUNNER. Until it did, everything anybody knew about
 it came from running the script extracted from the file on a workstation, which
@@ -394,6 +403,47 @@ dco.yml
 gh api "repos/iderex/wache/contents/.github/workflows/dco.yml?ref=v1.2.0"
 {"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/contents#get-repository-content","status":"404"}
 ```
+
+NO TAG REACHES THE EXEMPTION REPAIR, so `v1.3.0` is behind `main` on what both
+gates let past. At `v1.3.0` an entry in `subject_exempt_authors` or in
+`exempt_authors` matches the whole `<id>+<entry>` form GitHub mints without
+asking what the `<id>` is, so on an allowlist naming only
+`dependabot[bot]@users.noreply.github.com` the address
+`attacker+dependabot[bot]@users.noreply.github.com` is exempt. On `main` the
+`<id>` has to be digits and that address is refused. The shape is readable
+without running anything, and the tags decide the rest:
+
+```sh
+git show v1.3.0:.github/workflows/pr-hygiene.yml | grep -n '"$entry" | \*"+$entry"'
+git show origin/main:.github/workflows/pr-hygiene.yml | grep -n '\[!0-9\]'
+git tag --contains 589c8d2
+git tag --contains 71baad6
+```
+
+Both `--contains` runs print nothing. `#55` and `#49` are the two repairs,
+`589c8d2` and `71baad6` are where they landed, and `#57` is where the matcher
+was extracted out of each ref and run rather than read.
+
+WHAT IT COSTS A BOARD TODAY IS NOTHING, and the reason is worth reading before
+the paragraph is dismissed. Nothing calls the DCO gate, and on 31 August 2026
+every caller of the hygiene check was pinned at `v1.0.0` or `v1.2.0`, neither of
+which declares `subject_exempt_authors` at all:
+
+```sh
+for t in v1.0.0 v1.2.0; do
+  echo "$t $(git show $t:.github/workflows/pr-hygiene.yml |
+             grep -c '^      subject_exempt_authors:')"
+done
+v1.0.0 0
+v1.2.0 0
+```
+
+The tags are in this clone and that half reproduces; the pins are on other
+boards and move, so re-read them rather than citing this paragraph. The cost
+arrives with the first board that repins and turns the exemption on, which is
+the sequence `#27` writes down. Until a tag carries the repair the tighter
+matcher is reachable only by pinning a commit, and whether a tag is cut is
+`#25`'s open question rather than this section's answer.
 
 Read them before pinning. A version list kept by hand drifts against the tags,
 and this section did: it stopped at `v1.1.0` while the example above it named
