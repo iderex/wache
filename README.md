@@ -96,10 +96,10 @@ check the file rather than the filename. Reading the copies found five answers
 this check had no form of, and three of them would turn work that passes on
 those boards today into work that is refused the day the local file goes. What this check has a form of now is the
 list of inputs below rather than a count written here; `ready_for_review` is a
-trigger you declare and not an input; and one answer is decided NOT to come here
-at all, which is the `Scope:` path comparison at the end of this section. The
-reading is `#27` and the two answers that need the caller's permission are
-`#36`.
+trigger you declare and not an input; and the answers decided NOT to come here
+at all have a section each at the end of this one, so the reason sits at the
+refusal rather than in a count written here. The reading is `#27` and the two
+answers that need the caller's permission are `#36`.
 
 READ YOUR OWN COPY BEFORE YOU DELETE IT and carry its answer across in the same
 change, where a reader can see it. Every default below is what this check
@@ -416,6 +416,74 @@ more by `docs/local-hygiene-answers.md`, which also says why the earlier sweeps
 could not see them. Nothing here re-opens `#36`: a board holding an answer and a
 board asking for a shared one are different statements, and this corrects the
 first without asserting the second.
+
+### The three answers of `iderex/rechenstrasse` are decided not to come here
+
+`commit-has-no-body`, `head-is-default-branch` and `generated-file-edited` are
+three arms of that board's `.github/pr-hygiene/hygiene.py` this check has no
+form of. All three are refused here and all three stay where they are. The
+decision is on `#59`, and the reasons differ, which matters more than the shared
+verdict.
+
+The counts they are refused against were taken by BEHAVIOUR rather than by that
+board's arm names, and each hit was opened and read at the refusal:
+
+```
+$ git show origin/main:docs/local-hygiene-answers.md | grep -n ': one board\|: three boards'
+121:**`head-is-default-branch`: three boards.**
+141:**`generated-file-edited`: one board.** `iderex/rechenstrasse`,
+152:**`commit-has-no-body`: one board.** `iderex/rechenstrasse`,
+```
+
+**`commit-has-no-body` asks for a capability rather than for a rule.** This
+check reads a commit SUBJECT and never the rest of the message, so carrying the
+answer means teaching it to read a message body first. That is new machinery
+serving one board's rule, and a rule whose own file says it can only assert that
+a body exists and never that the body says anything. New capability, weak
+guarantee, one board. If it ever reaches the bar the capability is worth
+building; today it is not.
+
+**`head-is-default-branch` is the one to carry first if any of the three is ever
+carried, and it is NOT refused on the number.** It needs the least - no
+per-caller configuration, no pattern list, a branch name compared against a
+value the platform already reports - and it is right on every board rather than
+only where somebody chose it. Three boards hold it, which is the figure the
+`#36` ruling names as what a re-opening would have to show. What it is refused
+on is the distinction that ruling draws and this one keeps: three boards HOLDING
+an answer is not three boards ASKING for a shared one, none of the three has
+said anything about a shared route, and `docs/local-hygiene-answers.md` says in
+both directions that it cannot choose between those two readings from a count.
+
+ONE OF THE THREE HOLDERS IS IN THE REMOVAL SET. `iderex/plattenschrank` refuses
+it in the local copy `#27` sequences away, so that board loses the answer in the
+change that deletes its file and nothing here catches it afterwards. That is the
+loss `#27` exists against, arriving on an answer this section declines to
+absorb, and it is a reason to read that board's copy before deleting it rather
+than a reason to re-take this decision.
+
+Worth the line for a reader wondering why the case is rare: on a board whose
+ruleset refuses a direct push to the default branch, the shape this arm catches
+mostly cannot arise. That is an argument for it being cheap insurance rather
+than an argument against it.
+
+**`generated-file-edited` is refused for a reason that survives any count.** The
+pattern list is that board's own - it matches by pattern rather than by path, so
+a generated file the tree adopts later is covered on the day it arrives - and a
+shared route would be asking every caller to declare theirs. A caller that
+switched it on and declared nothing would get a check that runs, passes and
+looks like a gate, and believing you hold a gate you do not hold is worse than
+knowing you hold none.
+
+SO THE CONSTRAINT IS WRITTEN DOWN HERE WHILE THE REASON FOR IT IS IN VIEW,
+rather than left to be rediscovered by whoever proposes the input: if this
+answer is ever wanted shared, the form has to REFUSE a caller that switches it
+on and declares no list. Passing such a caller is the shape this check exists to
+remove, and it would be introduced deliberately.
+
+What this leaves is `iderex/rechenstrasse` keeping all three, which is the
+outcome rather than a consolation - a shared check absorbs what is common and a
+board keeps what is its own. The deletion of its copy that `#27` sequences
+applies to the answers this check does carry and not to these three.
 
 The unicode guard is called the same way, and needs its own triggers because it
 reads the tree rather than the pull request:
