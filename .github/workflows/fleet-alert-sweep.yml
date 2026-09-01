@@ -77,8 +77,17 @@
 # summary; the run's exit code is the alert leg's. A red scheduled run would
 # also throw away the day's alert reading, because the artifact is kept on
 # `success()` alone, so making a configuration shortfall fail the run would cost
-# the delta the first leg exists for. Where that naming should land beyond the
-# run itself is `iderex/wache#48`.
+# the delta the first leg exists for.
+#
+# WHERE THE READING LANDS BEYOND THE RUN (iderex/wache#48). A run's step summary
+# is reachable only by knowing the run exists, and the artifact beside it expires
+# after ninety days, so the fleet's alert history had a home with an expiry date
+# and no index. Every ordinary run now writes the same summary into the body of
+# one CLOSED issue on this board, `iderex/wache#67`. Closed is the point of it: a
+# permanently open issue is read as work by every count over this board, while a
+# closed one still takes an edit, still has a stable number, and keeps every past
+# reading in its edit history. The step summary and the register body are one
+# composed text used twice, so the two cannot disagree.
 name: Fleet alert sweep
 
 on:
@@ -109,6 +118,9 @@ on:
 permissions:
   contents: read
   actions: read
+  # The register issue this sweep writes is on this board, so the token a run
+  # here is minted with reaches it and the fleet token is not spent on it.
+  issues: write
 
 concurrency:
   # Two sweeps at once would file the same issue twice, which is the one thing
@@ -125,6 +137,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      issues: write
     steps:
       # THE BASELINE PAGE IS THE ONE FILE THIS SWEEP READS OUT OF ITS OWN TREE.
       # The register of recorded reasons lives there, and a copy of it in this
@@ -138,6 +151,9 @@ jobs:
         env:
           SWEEP_TOKEN: ${{ secrets.FLEET_SWEEP_TOKEN }}
           RUNS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTER_ISSUE: '67'
+          REF_NAME: ${{ github.ref_name }}
           THIS_REPO: ${{ github.repository }}
           THIS_RUN: ${{ github.run_id }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
@@ -276,6 +292,43 @@ jobs:
             if [ "$1" != "0" ]; then printf '0\n'; return; fi
             if [ "${2:-false}" = "true" ]; then printf '0\n'; return; fi
             printf '1\n'
+          }
+
+          # WHICH RUNS MAY WRITE THE REGISTER (iderex/wache#48). Every run that
+          # keeps a reading, and no other - a seeded run's reading is an argument
+          # to a proof and a dry run's is one it was never allowed to act on, and
+          # neither belongs in a permanent register any more than in the next
+          # run's baseline. One condition is added on top: the run must be on
+          # this board's default branch. A dispatch on a feature branch is a
+          # rehearsal of a MODIFIED sweep, and the register is the mainline's
+          # permanent state, so a rehearsal that overwrote it would put a reading
+          # produced by code that never landed where a later reader takes it for
+          # the fleet's own history. That is the same reason the previous reading
+          # is only ever read from the default branch.
+          may_register() {
+            # $1 seeded, $2 the dry-run input, $3 the ref this run is on,
+            # $4 this board's default branch
+            [ "$(may_keep "$1" "$2")" = "1" ] || { printf '0\n'; return; }
+            [ -n "$3" ] && [ "$3" = "$4" ] || { printf '0\n'; return; }
+            printf '1\n'
+          }
+
+          # AN ISSUE BODY HAS A CEILING AND THE READING DOES NOT. The register is
+          # a fleet-wide table, so it grows with the roster and with whatever rose
+          # that day, and a PATCH carrying more than the platform accepts is
+          # refused whole - which would leave the register holding YESTERDAY's
+          # reading while the run reported today's, the one failure a register may
+          # not have. So the body is cut to the last whole line that fits and SAYS
+          # that it was cut, with the run holding all of it named above the cut.
+          # The ceiling is counted in bytes, which is at or above the character
+          # count the platform measures, so the cut falls early rather than late.
+          clamp() {
+            # $1 a file, $2 the ceiling in bytes
+            local f=$1 max=$2 n
+            n=$(wc -c < "$f" | tr -d ' ')
+            if [ "$n" -le "$max" ]; then cat "$f"; return; fi
+            head -c "$max" "$f" | sed '$d'
+            printf '\n_Cut to fit the body limit of an issue: %s bytes of %s are here. The run named above carries all of it._\n' "$max" "$n"
           }
 
           # THE OTHER HALF IS WHERE A BASELINE MAY COME FROM. The run history is
@@ -533,6 +586,29 @@ jobs:
           same "a dry run keeps nothing, because it was never allowed to file" "$(may_keep 0 true)" "0"
           same "a seeded run keeps nothing" "$(may_keep 1 false)" "0"
           same "a seeded dry run keeps nothing either" "$(may_keep 1 true)" "0"
+
+          # -------- which run may write the register --------
+          same "an ordinary run on the default branch writes the register" \
+               "$(may_register 0 false main main)" "1"
+          same "the same run on a feature branch writes nothing" \
+               "$(may_register 0 false feat/x main)" "0"
+          same "a dry run on the default branch writes nothing" \
+               "$(may_register 0 true main main)" "0"
+          same "a seeded run on the default branch writes nothing" \
+               "$(may_register 1 false main main)" "0"
+          same "a run that cannot tell which ref it is on writes nothing" \
+               "$(may_register 0 false '' main)" "0"
+          same "a run that cannot tell its default branch writes nothing" \
+               "$(may_register 0 false main '')" "0"
+
+          # -------- the ceiling on a body --------
+          printf 'aaa\nbbb\nccc\n' > "$fx/body"
+          same "a reading under the ceiling is written whole" \
+               "$(clamp "$fx/body" 100)" "$(printf 'aaa\nbbb\nccc')"
+          same "a reading over the ceiling loses the line that did not fit" \
+               "$(clamp "$fx/body" 9 | grep -v '^_')" "$(printf 'aaa\nbbb')"
+          same "a cut reading says it was cut rather than ending silently" \
+               "$(clamp "$fx/body" 9 | grep -c 'Cut to fit')" "1"
           same "the previous reading is looked for on the default branch alone" \
                "$(runs_url iderex/wache fleet-alert-sweep.yml main)" \
                "https://api.github.com/repos/iderex/wache/actions/workflows/fleet-alert-sweep.yml/runs?status=success&branch=main&per_page=50"
@@ -993,6 +1069,13 @@ jobs:
           firsts=$(awk -F'\t' '$6 == "first-reading"' "$moves" || true)
           echo "judgement: $(printf '%s\n' "$risen" | grep -c .) rule(s) new or risen, $(printf '%s\n' "$firsts" | grep -c .) pair(s) read for the first time"
 
+          # THE DIGEST IS COMPOSED ONCE AND USED TWICE (iderex/wache#48): it is
+          # this run's step summary and it is the body written into the register
+          # issue. Two texts built separately from the same data would drift the
+          # first time one of them was edited, and a register that disagrees with
+          # the run it names is worse than no register.
+          digest=$(mktemp)
+
           {
             echo "## Fleet alert sweep"
             echo
@@ -1024,7 +1107,7 @@ jobs:
             else
               echo "none."
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          } >> "$digest"
 
           # ------------------------------------------------------------------
           # The baseline rows. A seeded run reads no board, so it has no
@@ -1055,7 +1138,49 @@ jobs:
                 echo "| _every board swept is in its row_ | | | |"
               fi
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          } >> "$digest"
+
+          cat "$digest" >> "$GITHUB_STEP_SUMMARY"
+
+          # ------------------------------------------------------------------
+          # The register (iderex/wache#48). WRITTEN BEFORE THE EARLY EXIT BELOW,
+          # for the same reason `keep_reading` is: a run where nothing rose
+          # leaves this step without reaching the filing block at all, and its
+          # reading is exactly the one the register exists to keep.
+          # ------------------------------------------------------------------
+          write_register=$(may_register "$seeded" "${DRY_RUN:-false}" "${REF_NAME:-}" "${DEFAULT_BRANCH:-}")
+          if [ "$write_register" != "1" ]; then
+            echo "register: not written by this run, which is a $( [ "$seeded" = "1" ] && printf 'seeded run' || { [ "${DRY_RUN:-false}" = "true" ] && printf 'dry run' || printf 'run on %s rather than on %s' "${REF_NAME:-an unnamed ref}" "${DEFAULT_BRANCH:-an unnamed default branch}"; } )"
+          elif [ -z "${REGISTER_ISSUE:-}" ]; then
+            echo "::warning::this run may write the register and no register issue is named, so its reading lands in this run summary and its artifact alone. That is the home iderex/wache#48 was opened against."
+          else
+            reg=$(mktemp)
+            {
+              echo "This body is written by the \`Fleet alert sweep\` workflow of this board on every ordinary run of it. An edit made here by hand is overwritten by the next run, without warning and without a record of what it said, so a correction belongs in the sweep or in \`$BASELINE_PAGE\` and never in this body."
+              echo
+              echo "Run [\`$THIS_RUN\`](https://github.com/$THIS_REPO/actions/runs/$THIS_RUN), from \`$GITHUB_SHA\`, read at $(date -u '+%Y-%m-%d %H:%M:%SZ'). The edit history of this body is the register's history: every reading before this one is in it, addressed by this issue's number rather than by knowing that a run existed."
+              echo
+              cat "$digest"
+            } > "$reg"
+            body_out=$(mktemp)
+            clamp "$reg" 60000 > "$body_out"
+            payload=$(mktemp)
+            jq -n --rawfile b "$body_out" '{body: $b}' > "$payload"
+            code=$(req PATCH "https://api.github.com/repos/$THIS_REPO/issues/$REGISTER_ISSUE" "$REGISTER_TOKEN" "$payload")
+            if [ "$code" = "200" ]; then
+              echo "register: this reading is in $THIS_REPO#$REGISTER_ISSUE, $(wc -c < "$body_out" | tr -d ' ') byte(s)"
+            else
+              # IT WARNS RATHER THAN REFUSING, and that is a trade rather than an
+              # oversight. The artifact this run keeps is uploaded on `success()`
+              # alone, so failing here would throw away the day's reading to
+              # report that one copy of it did not land - and the reading is
+              # still in this run's summary and in that artifact. What is lost is
+              # the permanent home, which is exactly what the line below says out
+              # loud rather than leaving to be noticed.
+              echo "::warning::the register $THIS_REPO#$REGISTER_ISSUE answered $code, so it still carries the PREVIOUS run's reading and not this one. This run's reading is in this run summary and in its artifact, both of which expire. Nothing here refuses on it, because the artifact is kept on a green run alone."
+            fi
+            rm -f "$reg" "$body_out" "$payload"
+          fi
 
           echo "seeded=$seeded" >> "$GITHUB_ENV"
           # WRITTEN BEFORE THE EARLY EXIT BELOW, not beside the filing. A run

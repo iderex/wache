@@ -359,8 +359,34 @@ outside the swept population is named as such rather than passed over.
 summary; the exit code stays the alert delta's. A red scheduled run would throw
 away the day's alert reading, because the artifact is kept on a successful run
 alone, so making a configuration shortfall fail the run would cost the delta the
-first leg exists for. Where that naming should land beyond the run itself is
-`#48`.
+first leg exists for.
+
+**WHERE THAT NAMING LANDS BEYOND THE RUN, AND THIS PARAGRAPH SAID IT WAS AN OPEN
+QUESTION.** It is `#48` and it is decided: every ordinary run writes the same
+text it puts in its step summary into the body of one CLOSED issue on this board,
+`iderex/wache#67`. Closed is the whole point of the choice. A permanently open
+issue carrying a table is read as work by every count over this board, forever,
+while a closed one still takes an edit, still has a stable number, is found by
+search, and keeps every earlier reading in its edit history - so the register is
+permanent and indexed without ever being counted as something left to do.
+
+    git show origin/main:.github/workflows/fleet-alert-sweep.yml |
+      grep -n 'REGISTER_ISSUE:'
+
+**WHICH RUNS WRITE IT IS NARROWER THAN WHICH RUNS REPORT.** `may_register` in
+that file answers it and has fixtures: a run writes the register when it is
+allowed to keep a reading - not seeded, not a dry run - AND is on this board's
+default branch. A dispatch on a feature branch is a rehearsal of a modified
+sweep, and a rehearsal that overwrote the register would put a reading produced
+by code that never landed where a reader takes it for the fleet's own history.
+
+**IT WARNS RATHER THAN REFUSING WHERE THE WRITE FAILS, AND THAT IS A RESIDUAL
+RATHER THAN AN OVERSIGHT.** A refusal there would throw the day's alert reading
+away for the same reason the paragraph above gives, so a register that answered
+anything but `200` leaves the PREVIOUS run's reading in place while the run
+reports today's. The run says so on its own output in those words. Nothing reads
+that line, which is what makes it a residual: a register that silently stopped
+being written looks, from this page, exactly like one that is current.
 
 **What it named on the first fleet-wide run of its judgement**, taken by hand
 against the readings above on 30 August 2026 before it had run on a schedule: one
@@ -431,9 +457,13 @@ and no board short of any of the four controls.
 - THE FIGURES ABOVE STILL COME FROM COMMANDS SOMEBODY CHOSE TO RUN, and this
   bullet said nothing here runs on a schedule. The leg described above does, in
   the sweep `#31` landed. What it does not do is write this page: a scheduled run
-  cannot land a document on this mainline, so the state recorded here goes stale
-  exactly as it did before and the run's own summary is the current reading. That
-  is `#48`.
+  cannot land a document on this mainline, because the default branch takes pull
+  requests only and the ruleset has no bypass actors. So the state recorded here
+  goes stale exactly as it did before. WHAT HAS CHANGED IS WHERE THE CURRENT
+  READING LIVES, and this bullet said it was the run's own summary: it is
+  `iderex/wache#67`, permanently and by number, for the reasons at
+  `## What reads this page` above. The figures written into THIS page are still a
+  reading of the day somebody took them.
 - The leg reads four controls and the row a board is in. It reads no alert, no
   finding and no severity; whether a board that scans scans WELL is not a
   question anything here asks.
