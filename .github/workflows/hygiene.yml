@@ -46,5 +46,18 @@ jobs:
     # moves for this.
     with:
       resolve_referenced_numbers: true
+      # THE SAME REASON ONE LINE DOWN (issue #66). This board is the first
+      # caller to turn the body rule on, because an answer nobody has executed
+      # is a green line with nothing behind it. The input is off by default and
+      # no other board moves for this.
+      #
+      # THE EXEMPTION IS NOT OPTIONAL HERE. This board carries
+      # `.github/dependabot.yml`, so it opens dependency-update pull requests
+      # whose bodies name no issue and cannot - without this line the rule above
+      # reds every one of them, which is the live consequence the reading on #66
+      # names rather than a hypothetical.
+      body_names_issue: true
+      body_exempt_authors: |
+        dependabot[bot]
     secrets:
       issue_read_token: ${{ secrets.GITHUB_TOKEN }}

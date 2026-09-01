@@ -292,6 +292,112 @@ v1.2.0   0
 v1.3.0   0
 ```
 
+### Asking that the BODY names an issue
+
+`body_names_issue` refuses a pull request whose body names no issue on your
+board. Nine boards of the eighteen in `#27`'s removal set hold this answer in
+their own copy, which is three times the bar the `#36` ruling names, and seven
+of the nine spell it seven different ways. So the form here is CHOSEN, and each
+thing it takes is a thing it declines. The reading is `#66` and
+`docs/local-hygiene-answers.md`.
+
+THIS IS NOT `subject_names_issue` READ ONE PLACE OVER. That rule asks it of
+every non-merge commit SUBJECT and wants square brackets, `[#181]`; this one
+asks it of the body once and wants a bare `#N`. Both forms are what the boards
+holding each answer already write, and a reader who expects one shape in both
+places will be surprised by exactly one of them.
+
+It matters more than it looks on the boards this check already runs on:
+eighteen of the nineteen callers pass `subject_names_issue: false`, so on those
+boards the shared route asks nothing about an issue reference anywhere, and
+deleting the local copy takes away the last thing on the board that did.
+
+```yaml
+    with:
+      body_names_issue: true
+      body_exempt_authors: |
+        dependabot[bot]
+```
+
+WHAT COUNTS, AND WHAT WAS DECLINED:
+
+- **The body, and only the body.** Five of the seven read the body. Two pool the
+  commit messages in with it, which is a weaker rule rather than a variant of
+  the same one - there, a body with no reference passes as long as some message
+  carries one. Those two keep their answer locally.
+- **`#N`, or a full link to an issue of your board.** Two boards say exactly
+  that and a third says `#N`. Requiring a CLOSING reference is stricter, is held
+  by one board, and refuses a body that legitimately names the issue it is part
+  of without closing it; that board keeps its requirement on top of this one.
+- **A reference to another board does not count**, written either as
+  `owner/repo#N` or as a link. One board states a position here and excludes
+  them deliberately, and the reasoning carries: the rule exists so that YOUR
+  tracker holds the reason for the change, and a reference to somebody else's
+  does not put it there. Taken on one board's reading, which is worth saying out
+  loud because the rest of this list rests on several.
+- **A link to a pull request does not count.** `/issues/` is matched and
+  `/pull/` is not.
+- **It refuses, and it refuses on a fork too.** Six of the seven refuse. The one
+  that warns instead does so on a fork, and a gate with an exemption for the
+  contributor least likely to know the convention is not doing the job the
+  exemption was meant to soften. The refusal message is where that kindness
+  belongs, and it says what to write.
+
+`body_exempt_authors` is why this does not red every dependency update the day a
+board switches it on. A dependency bot opens a pull request whose body names no
+issue, and only an author that cannot write a body should be exempt from being
+asked for one. It is a list of LOGINS, matched exactly, and that is enough where
+`subject_exempt_authors` needs an `<id>+<entry>` leg: a git author address is a
+field whoever commits types, while a login is minted by the platform and arrives
+on the event.
+
+WHERE THIS STOPS, and it is the same bound the subject rule has. It is a shape
+match and nothing looks the number up, so a colour value written `#181818`
+satisfies it - six decimal digits behind a `#` are an issue number by shape. The
+subject rule bought its way out of that with square brackets and this form
+cannot, because the nine boards holding it write a bare `#N`. The fixture beside
+it pins that as a pass, so the bound is stated rather than discovered.
+`resolve_referenced_numbers` above is the input that reads a number instead of
+matching one, and it judges commit subjects rather than the body.
+
+NO RELEASED TAG DECLARES THESE TWO INPUTS YET, so no pinned example above passes
+them and none may: `calling-examples.yml` resolves every pin in every tracked
+document and refuses a key the pinned commit does not declare. Read the tags
+rather than this sentence:
+
+```sh
+for t in $(git ls-remote --tags https://github.com/iderex/wache | grep -v '\^{}' |
+             sed 's#.*refs/tags/##'); do
+  printf '%-8s %s\n' "$t" \
+    "$(gh api "repos/iderex/wache/contents/.github/workflows/pr-hygiene.yml?ref=$t" \
+         --jq '.content' | base64 -d | grep -c '^      body_names_issue:')"
+done
+v1.0.0   0
+v1.1.0   0
+v1.2.0   0
+v1.3.0   0
+```
+
+### The means sentence is decided not to come here
+
+`iderex/pruefstand` refuses a change that ADDS a dependency manifest, a file
+whose suffix the tree did not already carry, or a workflow, when no line of the
+body of at least forty characters carries the word "means". `iderex/hallraum`
+requires a non-empty "means check" section in the body of EVERY change. Nothing
+on this route reads a changed path, an added file's suffix or a body section,
+and it stays that way. The decision is on `#66`.
+
+TWO BOARDS, AND THE BAR IS THREE - but the count is not the strongest reason.
+The two are not one answer held twice: one refuses when a change brings
+something in and no long enough line carries a word, the other requires a named
+section of every change. Those are different rules about different populations,
+and neither is evidence for the other. Carrying in an answer that two boards
+spell two ways means picking one of them and calling it shared, which is how a
+check acquires a rule nobody asked for.
+
+It stays local on both. If a third board grows one, the count is worth
+revisiting with all three spellings on the table.
+
 ### The `Scope:` path comparison is decided not to come here
 
 `iderex/stammtisch` compares the changed paths against the `Scope:` line of each
@@ -535,6 +641,13 @@ argued again in each board:
 
 Beyond that it refuses an empty pull request body and a placeholder title.
 
+THE BODY RULE ANSWERS THE SAME QUESTION IN A DIFFERENT SHAPE, and the two lists
+disagree on purpose. `body_names_issue` reads the pull request body rather than
+a commit subject, wants a bare `#N` rather than square brackets, and counts NO
+mention on another board - because it exists so that this board's own tracker
+holds the reason. Each of those is a choice against a board that does it the
+other way, and `### Asking that the BODY names an issue` above says which.
+
 ## The fixtures run before the judgement
 
 A check that has never refused anything is a green line with nothing behind
@@ -548,7 +661,10 @@ already did.
 
 The near misses are the interesting half. `#181818` is a colour value and not
 an issue mention. `(#181)` is a round bracket and does not count. A bare `#181`
-does not count either, because the decision was square brackets. A closing
+does not count either, because the decision was square brackets. ALL THREE ARE
+ABOUT THE SUBJECT RULE, and the body rule answers two of them the other way: in
+a body a bare `#181` is exactly what counts, and `#181818` counts with it, which
+is written down at that input rather than left for somebody to find. A closing
 keyword is judged line by line, so `Closes #7` standing further down the body
 does not excuse `closes #8` written into a paragraph above it.
 

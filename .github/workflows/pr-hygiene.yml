@@ -75,6 +75,49 @@ on:
         type: boolean
         default: false
         required: false
+      # THE TWO BELOW ARE ONE MORE ANSWER, FROM A LATER READING (issue #66).
+      # Nine boards of the eighteen in #27's removal set refuse a pull request
+      # BODY that names no issue, which is three times the bar the #36 ruling
+      # names - and seven of the nine spell it seven different ways, so the form
+      # here is CHOSEN rather than inherited and each thing it takes is a thing
+      # it declines. What it takes, and what it declined to take, is written at
+      # `body_names_issue` in `README.md` where a board reads it.
+      #
+      # THIS IS NOT THE SUBJECT RULE ONE STEP OVER. `subject_names_issue` asks
+      # it of every non-merge commit SUBJECT and wants square brackets; this
+      # asks it of the body once and wants a bare `#N`. Eighteen of the nineteen
+      # callers pass `subject_names_issue: false`, so on those boards the shared
+      # route asks nothing about an issue reference anywhere, and deleting the
+      # local copy takes away the last thing on the board that did.
+      body_names_issue:
+        description: >-
+          Refuse a pull request whose BODY names no issue on this board. What
+          counts is `#N`, or a full link to an issue of this repository; a
+          reference to another board's tracker, `owner/repo#N` or a link, does
+          NOT count, because this check exists so that THIS board's tracker
+          holds the reason for the change and a reference elsewhere does not put
+          it there. A link to a pull request does not count either. It refuses
+          rather than warning, on a fork as anywhere else - the refusal message
+          is where the kindness belongs and it says what to write. Off by
+          default, so a board that adds nothing moves nowhere.
+        type: boolean
+        default: false
+        required: false
+      body_exempt_authors:
+        description: >-
+          Logins whose pull requests are not held to the body rule, one per
+          line, matched exactly. An author that cannot write a body is exempt by
+          name: a dependency bot opens a pull request whose body names no issue,
+          and without this the body rule reds every dependency update on every
+          board that switches it on. AN EXACT MATCH IS ENOUGH HERE AND IT IS NOT
+          ENOUGH FOR `subject_exempt_authors`, which is worth the sentence: a
+          git author address is a field whoever commits types, while a login is
+          minted by the platform and arrives on the event, so there is no
+          `<id>+<entry>` form to walk through and nothing for a human to choose.
+          Empty exempts nobody, and the rule being off exempts everybody.
+        type: string
+        default: ''
+        required: false
       # THE INPUT BELOW IS THE ONE ANSWER OF THE FIVE THAT NEEDS SOMETHING THE
       # RUN CANNOT REACH (issue #36). The three above refuse or waive on bytes
       # already in the checkout - an author address, a message, the pull
@@ -163,6 +206,13 @@ jobs:
           ASCII_RULE: ${{ inputs.message_is_ascii }}
           HEAD_IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
           AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          BODY_RULE: ${{ inputs.body_names_issue }}
+          BODY_EXEMPT_AUTHORS: ${{ inputs.body_exempt_authors }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          # The board this run belongs to, which is the CALLER's repository and
+          # not this one. It is what decides whether a link in the body points
+          # at this board's tracker or at somebody else's.
+          THIS_SLUG: ${{ github.repository }}
         run: |
           set -euo pipefail
 
@@ -202,6 +252,74 @@ jobs:
                   esac
                   ;;
               esac
+            done <<< "$list"
+            return 1
+          }
+
+          # WHAT THE BODY RULE COUNTS, AND WHAT IT DECLINES (issue #66). Seven
+          # of the nine boards holding this answer disagree about all four of
+          # the questions below, so each line is a choice against a real
+          # alternative somebody is running today:
+          #
+          #   SCOPE is the body alone. Five of the seven read the body; two pool
+          #   the commit messages in with it, which is a weaker rule and not a
+          #   variant of the same one - a body with no reference passes there as
+          #   long as some message carries one. Those two keep it locally.
+          #
+          #   `#N` COUNTS, and so does a full link to an issue of this board.
+          #   Two boards say exactly that and a third says `#N`. Requiring a
+          #   CLOSING reference is stricter, is held by one board, and refuses a
+          #   body that legitimately names the issue it is part of without
+          #   closing it; that board keeps its requirement on top of this.
+          #
+          #   `owner/repo#N` DOES NOT COUNT, nor does a link into another
+          #   board's tracker. One board states a position here and it excludes
+          #   them deliberately, and the reasoning carries: the rule exists so
+          #   that THIS board's tracker holds the reason for the change, and a
+          #   reference to somebody else's does not put it there. Taken on one
+          #   board's reading, which is worth saying out loud.
+          #
+          #   A LINK TO A PULL REQUEST DOES NOT COUNT. `/issues/` is matched and
+          #   `/pull/` is not, for the same reason the resolving job separates
+          #   the two.
+          #
+          # WHERE THIS STOPS, AND IT IS A SHAPE MATCH LIKE THE SUBJECT RULE'S. A
+          # colour value written `#181818` satisfies it, because six decimal
+          # digits behind a `#` are an issue number by shape and nothing here
+          # looks the number up. The subject rule bought its way out of that with
+          # square brackets and this form cannot, because the nine boards holding
+          # it write a bare `#N`. The fixture below pins that as a PASS so the
+          # bound is stated rather than discovered, and `resolve_referenced_numbers`
+          # is the input that reads a number instead of matching it.
+          body_names_issue() {
+            local body=$1 slug=$2
+            [[ "$body" =~ (^|[^A-Za-z0-9_/.-])#[0-9]+ ]] && return 0
+            [[ "$body" =~ "https://github.com/$slug/issues/"[0-9]+ ]] && return 0
+            return 1
+          }
+
+          # A LOGIN IS NOT AN AUTHOR ADDRESS AND THIS IS WHY THE MATCH IS PLAIN.
+          # `is_exempt_author` above walks the `<id>+<entry>` form and checks the
+          # id is digits, because a git author address is typed by whoever
+          # commits and a human could otherwise exempt themselves. A login is
+          # minted by the platform and arrives on the event, so an exact
+          # comparison is the whole rule and a wider one would only add ways to
+          # be wrong.
+          #
+          # AN EMPTY LOGIN IS EXEMPT FROM NOTHING AND NO LINE HERE SAYS SO. It
+          # was a guard until the suite was run without it and stayed green: no
+          # entry of the list is empty, so the comparison already refuses an
+          # empty login and a second check refusing it proves nothing. The
+          # fixture for it stays, because what is worth pinning is the
+          # behaviour and not the line that used to produce it.
+          is_exempt_login() {
+            local login=$1 list=$2 entry
+            [ -n "$list" ] || return 1
+            while IFS= read -r entry; do
+              entry="${entry#"${entry%%[![:space:]]*}"}"
+              entry="${entry%"${entry##*[![:space:]]}"}"
+              [ -n "$entry" ] || continue
+              [ "$login" = "$entry" ] && return 0
             done <<< "$list"
             return 1
           }
@@ -316,6 +434,32 @@ jobs:
           must_not_name "a bare number does not count"    "A title #181"
           must_not_name "a colour value is not a mention" "Set the accent to #181818"
 
+          must_body_name() {
+            if body_names_issue "$2" "${3:-iderex/wache}"; then echo "fixture ok     $1"; else echo "FIXTURE FAILED $1"; self_test=1; fi
+          }
+          must_not_body_name() {
+            if body_names_issue "$2" "${3:-iderex/wache}"; then echo "FIXTURE FAILED $1"; self_test=1; else echo "fixture ok     $1"; fi
+          }
+
+          must_body_name     "a bare number in the body counts"        "This is part of #66."
+          must_body_name     "a closing line carries one too"          $'Prose.\n\nCloses #7'
+          must_body_name     "a number at the very start counts"       "#66 is what this is about."
+          must_body_name     "a link to an issue of this board counts" "See https://github.com/iderex/wache/issues/66 for the reading."
+          must_body_name     "a link with an anchor still counts"      "See https://github.com/iderex/wache/issues/66#issuecomment-1 above."
+          must_not_body_name "a body with no reference at all"         "I changed the reader so it stops on the first failure."
+          must_not_body_name "another board's shorthand does not"      "This is part of iderex/operations#1552."
+          must_not_body_name "another board's link does not"           "See https://github.com/iderex/operations/issues/1552."
+          must_not_body_name "a link to a pull request does not"       "See https://github.com/iderex/wache/pull/66."
+          must_not_body_name "an empty body names nothing"             ""
+          must_not_body_name "a hash with no digits behind it"         "The # key is broken."
+          # THE SLUG IS THE CALLER'S BOARD AND THE FIXTURE PROVES IT IS READ.
+          # With a different board's slug the same link stops counting, which is
+          # what stops this rule from being satisfied by a link to any tracker.
+          must_not_body_name "this board's link on another board"      "See https://github.com/iderex/wache/issues/66." "iderex/messstube"
+          # PINNED AS A PASS SO THE BOUND IS STATED. This is a shape match, and
+          # six decimal digits behind a `#` are an issue number by shape.
+          must_body_name     "a colour value counts, which is the bound" "The accent is #181818."
+
           must_exempt() {
             if is_exempt_author "$2" "$3"; then echo "fixture ok     $1"; else echo "FIXTURE FAILED $1"; self_test=1; fi
           }
@@ -356,6 +500,25 @@ jobs:
           must_not_exempt "an empty id is not an id"         '+dependabot[bot]@users.noreply.github.com'            "$bots"
           must_not_exempt "digits then a word is not an id"  '4970attacker+dependabot[bot]@users.noreply.github.com' "$bots"
 
+          must_body_exempt() {
+            if is_exempt_login "$2" "$3"; then echo "fixture ok     $1"; else echo "FIXTURE FAILED $1"; self_test=1; fi
+          }
+          must_not_body_exempt() {
+            if is_exempt_login "$2" "$3"; then echo "FIXTURE FAILED $1"; self_test=1; else echo "fixture ok     $1"; fi
+          }
+
+          logins=$(printf '%s\n%s\n' 'dependabot[bot]' 'renovate[bot]')
+          must_body_exempt     "a listed login"                  'dependabot[bot]' "$logins"
+          must_body_exempt     "the second line of the list"     'renovate[bot]'   "$logins"
+          must_not_body_exempt "a login outside the list"        'github-actions[bot]' "$logins"
+          must_not_body_exempt "an ordinary author"              'ada'             "$logins"
+          must_not_body_exempt "an empty list exempts nobody"    'dependabot[bot]' ''
+          must_not_body_exempt "no login exempts nobody"         ''                "$logins"
+          # THE NEAR MISSES ARE THE TWO A LOOSER MATCH WOULD LET THROUGH, and
+          # they are why the comparison is `=` and not a case pattern.
+          must_not_body_exempt "a login containing a listed one" 'notdependabot[bot]' "$logins"
+          must_not_body_exempt "a listed login with more after"  'dependabot[bot]2'   "$logins"
+
           must_be_outside "a fork, whatever the association" 'true'  'COLLABORATOR'
           must_be_outside "a first-time contributor"         'false' 'FIRST_TIME_CONTRIBUTOR'
           must_be_outside "a plain contributor"              'false' 'CONTRIBUTOR'
@@ -384,6 +547,23 @@ jobs:
             echo "::error::$line"
             failed=1
           done < <(refusals "${PR_TITLE:-}" "${PR_BODY:-}")
+
+          # THE BODY RULE IS JUDGED OUTSIDE `refusals` because it needs three
+          # things that function has no business holding: the input, the board
+          # this run belongs to, and who opened the pull request. `refusals` is
+          # a pure function of a title and a body and stays one.
+          if [ "${BODY_RULE:-false}" = "true" ]; then
+            if is_exempt_login "${PR_AUTHOR:-}" "${BODY_EXEMPT_AUTHORS:-}"; then
+              echo "skip  the body rule (automation: ${PR_AUTHOR:-none})"
+            elif body_names_issue "${PR_BODY:-}" "${THIS_SLUG:-}"; then
+              echo "the body names an issue on ${THIS_SLUG:-this board}"
+            else
+              echo "::error::the body names no issue on ${THIS_SLUG:-this board}. Write the number as #N, or paste a full link to the issue. A reference to another board's tracker does not count here, because this check exists so that this board's tracker holds the reason for the change."
+              failed=1
+            fi
+          else
+            echo "the body rule is off for this repository, so the body was not read for an issue reference"
+          fi
 
           subject_rule="$SUBJECT_RULE"
           if [ "$subject_rule" = "true" ] && [ "$OUTSIDE_EXEMPT" = "true" ] \
