@@ -73,11 +73,29 @@
 # the control. A second list of exceptions inside this file would drift against
 # the page silently, which is the same failure the roster is fetched to avoid.
 #
-# WHAT IT DOES NOT DO IS REFUSE. A board short of its row is named in the run
-# summary; the run's exit code is the alert leg's. A red scheduled run would
-# also throw away the day's alert reading, because the artifact is kept on
-# `success()` alone, so making a configuration shortfall fail the run would cost
-# the delta the first leg exists for.
+# IT REFUSES NOW, AND THIS COMMENT SAID IT DID NOT (iderex/wache#32). What stood
+# here was that a board short of its row was named in the run summary and that
+# the run's exit code was the alert leg's, because a red run throws away the
+# day's alert reading - the artifact is kept on `success()` alone. That reason
+# was real and it is answered by ORDER rather than by trading the refusal away:
+# the verdict is decided in the judging step, the artifact is uploaded while the
+# job is still green, and a LAST step turns a shortfall into a red run after
+# both. So the day's reading is kept and the shortfall is refused, which the
+# comment above could not have without the extra step.
+#
+# WHY A REFUSAL AND NOT A NAME. "Staying covered is nobody's job" is what #32 is
+# about. A board added to the roster tomorrow gets its scanning settings from
+# nothing, and a line in a run summary that nobody is required to read is the
+# same as no watch at all. A red run is the only thing here that reaches a
+# person.
+#
+# A FAILED RUN STILL KEEPS NOTHING, and this refusal is not an exception to that.
+# The rule exists because a run whose FILING failed halfway would hand the rises
+# it did not manage to file to the next run as the baseline they were measured
+# against. A configuration shortfall is not a filing failure: the alert leg ran
+# to the end and filed what it had, so its reading is exactly the one the next
+# run needs. That is why the refusal sits after the upload rather than inside the
+# step that decides it.
 #
 # WHERE THE READING LANDS BEYOND THE RUN (iderex/wache#48). A run's step summary
 # is reachable only by knowing the run exists, and the artifact beside it expires
@@ -311,6 +329,24 @@ jobs:
             [ "$(may_keep "$1" "$2")" = "1" ] || { printf '0\n'; return; }
             [ -n "$3" ] && [ "$3" = "$4" ] || { printf '0\n'; return; }
             printf '1\n'
+          }
+
+          # WHAT A BASELINE COUNT MEANS FOR THE RUN'S EXIT CODE (iderex/wache#32).
+          # Three answers rather than two, because "the leg reached no verdict"
+          # and "the leg found nothing" are opposite statements and folding them
+          # together is the failure this whole file is written against. A count
+          # that is absent, or that is not a number, is NOT a clean fleet: it is
+          # a run whose judging step did not get that far, and the step that
+          # applies this says so instead of inventing a verdict.
+          baseline_refuses() {
+            # $1 the number of board-controls short of a row, as the judging
+            # step left it
+            case "${1:-}" in
+              '') printf 'no-verdict\n' ;;
+              *[!0-9]*) printf 'no-verdict\n' ;;
+              0) printf 'clean\n' ;;
+              *) printf 'refuse\n' ;;
+            esac
           }
 
           # AN ISSUE BODY HAS A CEILING AND THE READING DOES NOT. The register is
@@ -600,6 +636,14 @@ jobs:
                "$(may_register 0 false '' main)" "0"
           same "a run that cannot tell its default branch writes nothing" \
                "$(may_register 0 false main '')" "0"
+
+          # -------- what a baseline count does to the exit code --------
+          same "no board short of a row is a clean run" "$(baseline_refuses 0)" "clean"
+          same "one board-control short reds the run"   "$(baseline_refuses 1)" "refuse"
+          same "thirty-six short red it too"            "$(baseline_refuses 36)" "refuse"
+          same "an absent count is not a clean fleet"   "$(baseline_refuses '')" "no-verdict"
+          same "a count that is not a number is not one either" "$(baseline_refuses 'x')" "no-verdict"
+          same "a count with a number inside it is not one" "$(baseline_refuses '1 board')" "no-verdict"
 
           # -------- the ceiling on a body --------
           printf 'aaa\nbbb\nccc\n' > "$fx/body"
@@ -1187,6 +1231,10 @@ jobs:
           # where nothing rose leaves here without reaching the filing block at
           # all, and its reading is exactly the one the next run needs.
           echo "keep_reading=$(may_keep "$seeded" "${DRY_RUN:-false}")" >> "$GITHUB_ENV"
+          # WRITTEN HERE FOR THE SAME REASON AND READ BY THE LAST STEP OF THIS
+          # JOB. A run where nothing rose leaves this step at the exit below,
+          # and its configuration reading is exactly the one worth refusing on.
+          echo "baseline_verdict=$(baseline_refuses "$short_n")" >> "$GITHUB_ENV"
 
           if [ -z "$risen" ]; then
             echo "nothing rose, so nothing is filed"
@@ -1324,3 +1372,34 @@ jobs:
             config.tsv
           retention-days: 90
           if-no-files-found: error
+
+      - name: Refuse a board that left its baseline row
+        # LAST, AND THE ORDER IS THE WHOLE DESIGN (iderex/wache#32). The step
+        # above keeps this run's reading and is guarded on `success()`, so it has
+        # already run by the time this one reds the job. Deciding the verdict in
+        # the judging step and APPLYING it here is what lets a configuration
+        # shortfall fail the run without costing the day's alert delta.
+        #
+        # `always()` rather than a condition on the verdict, because a run whose
+        # judging step died leaves no verdict at all, and this step has to say
+        # that rather than be skipped into silence. What it does with that case
+        # is exit 0: the job is already red from the step that died, and a second
+        # error invented here would only bury the first.
+        if: ${{ always() }}
+        env:
+          BASELINE_VERDICT: ${{ env.baseline_verdict }}
+          BASELINE_PAGE: docs/scanning-baseline.md
+        run: |
+          set -euo pipefail
+          case "${BASELINE_VERDICT:-}" in
+            clean)
+              echo "every board swept is inside its own baseline row"
+              exit 0
+              ;;
+            no-verdict | '')
+              echo "the baseline leg reached no verdict on this run, so nothing here is refused. What happened to it is in the step that judges the fleet."
+              exit 0
+              ;;
+          esac
+          echo "::error::a board of the roster is outside the baseline row its visibility puts it in, with no reason recorded in $BASELINE_PAGE. The board, the control and the reading are in this run's summary and in the register issue this run wrote. Either the setting goes back on, or the reason is written into the register on that page - a board that deliberately does not scan is not the same thing as one nobody noticed."
+          exit 1

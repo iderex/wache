@@ -389,11 +389,32 @@ though it did. So does a waiver under a heading that names no board. A waiver fo
 a control the board now satisfies is named as stale, and a waiver for a board
 outside the swept population is named as such rather than passed over.
 
-**What it does not do is refuse.** A board short of its row is named in the run
-summary; the exit code stays the alert delta's. A red scheduled run would throw
-away the day's alert reading, because the artifact is kept on a successful run
-alone, so making a configuration shortfall fail the run would cost the delta the
-first leg exists for.
+**IT REFUSES NOW, AND THIS PARAGRAPH SAID IT DID NOT.** What stood here was that
+a board short of its row was named in the run summary, that the exit code stayed
+the alert delta's, and that a red run would throw the day's alert reading away
+because the artifact is kept on a successful run alone. The reason was real. It
+is answered by ORDER rather than by trading the refusal away: the judging step
+decides the verdict, the artifact is uploaded while the job is still green, and a
+LAST step turns a shortfall into a red run after both. So the day's reading is
+kept and the shortfall reddens the run.
+
+**WHY A REFUSAL AND NOT A NAME.** "Staying covered is nobody's job" is what `#32`
+is about. A board added to the roster tomorrow gets its scanning settings from
+nothing, and a line in a run summary nobody is required to read is the same watch
+as none. A red run is the only thing here that reaches a person.
+
+**A FAILED RUN STILL KEEPS NOTHING, and this is not an exception to it.** That
+rule exists because a run whose FILING failed halfway would hand the rises it did
+not manage to file to the next run as the baseline they were measured against. A
+configuration shortfall is not a filing failure: the alert leg ran to the end and
+filed what it had, so its reading is exactly the one the next run needs.
+
+**THREE ANSWERS AND NOT TWO.** A count that is absent, or that is not a number,
+is a run whose judging step did not get that far - not a clean fleet. The last
+step says so and exits green rather than inventing a verdict, because the job is
+already red from whatever killed the step before it and a second error would only
+bury the first. `baseline_refuses` in the workflow decides all three and has
+fixtures for each.
 
 **WHERE THAT NAMING LANDS BEYOND THE RUN, AND THIS PARAGRAPH SAID IT WAS AN OPEN
 QUESTION.** It is `#48` and it is decided: every ordinary run writes the same
