@@ -105,6 +105,30 @@ READ YOUR OWN COPY BEFORE YOU DELETE IT and carry its answer across in the same
 change, where a reader can see it. Every default below is what this check
 already did, so a board that adds nothing moves nowhere.
 
+READ YOUR OWN CALLER FIRST, BECAUSE ON MOST BOARDS IT HAS THE SUBJECT RULE
+SWITCHED OFF. Eighteen of the nineteen boards that call this check pass
+`subject_names_issue: false`, and no caller passes any other input. IT IS NOT
+THE SAME EIGHTEEN as the one above: the board with no gate of its own is
+`iderex/lesesaal`, and the board that leaves this input alone and so takes its
+default of `true` is `iderex/hoersaal`.
+
+```
+$ gh api "repos/$BOARD/contents/.github/workflows/shared-hygiene.yml" --jq '.content' |
+    base64 -d | grep -E 'pr-hygiene\.yml@|^ *subject_names_issue:'
+```
+
+With that input false and `message_is_ascii` unset, no commit is read at all -
+the range walk is behind one condition on both, and the run says so in a line of
+its own output. What is left judging your pull request from here is an empty
+body, a closing keyword that is not the whole of its own line, and a placeholder
+title. So on such a board your local copy is the only thing reading a commit,
+and deleting it without turning `subject_names_issue` back on in the same change
+leaves the board with three rules about a title and a body and nothing over its
+commits. Switching the input off stays a legitimate statement that the board
+does not meet the rule yet - it just stops being a statement about the shared
+route alone the moment the local gate goes. The reading is
+`docs/caller-inputs-and-the-two-late-copies.md` and the issue is `#27`.
+
 READ YOUR RULESET TOO, BECAUSE THE DELETE CAN STRAND A REQUIRED CHECK. If your
 branch ruleset requires the status check your local file produces, deleting the
 file leaves a required context that will never be reported again, and a required
