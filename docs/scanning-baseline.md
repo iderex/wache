@@ -35,19 +35,54 @@ The standing rule is that nothing at GitHub costs money, and that cuts the
 roster exactly where visibility cuts it.
 
 **Public boards.** CodeQL default setup for every supported language, secret
-scanning with push protection, and Dependabot. All three are free on a public
-repository, so the baseline is what the platform already gives and the only
-thing between a board and it is a setting.
+scanning with push protection, and Dependabot ALERTS. All three are free on a
+public repository, so the baseline is what the platform already gives and the
+only thing between a board and it is a setting.
 
-**Private boards.** Dependabot, which is free everywhere, plus the local gate's
-own legs. NOT CodeQL and NOT secret scanning, because on a private repository
-both are GitHub Advanced Security, which is the paid product. THIS IS A BASELINE
-CHOSEN AND NOT A GAP LEFT, and the difference matters to whoever reads the state
-next: a private board reporting both features off is at its baseline, not behind
-it, and a sweep must not open a finding on it.
+**Private boards.** Dependabot ALERTS, which are free everywhere, plus the
+local gate's own legs. NOT CodeQL and NOT secret scanning, because on a private
+repository both are GitHub Advanced Security, which is the paid product. THIS
+IS A BASELINE CHOSEN AND NOT A GAP LEFT, and the difference matters to whoever
+reads the state next: a private board reporting both features off is at its
+baseline, not behind it, and a sweep must not open a finding on it.
 
 A private board that later goes public crosses into the public row on the day
 its visibility changes, and the sweep is what should say so.
+
+**THE `Dependabot` IN BOTH ROWS MEANS THE ALERTS, AND THIS PAGE CARRIED THE
+QUESTION AS OPEN.** Two features carry the one name. Dependabot ALERTS are the
+platform matching a board's dependency graph against its advisory database and
+reporting what it finds; Dependabot VERSION UPDATES are `.github/dependabot.yml`
+in a board's own tree, opening pull requests rather than reporting anything. The
+decision this page records said `dependabot` and nothing finer, so both readings
+stood and neither was available as a fact. The question is taken on `#32` and the
+answer is the alerts.
+
+THE CRITERION IS THE ONE THAT SETTLED `zizmor` BELOW, APPLIED UNCHANGED RATHER
+THAN INVENTED FOR THIS. What makes a set a baseline here is that it is turned on
+as a repository SETTING and asking is one call per board with no reading of any
+tree. The alerts are exactly that, and the call answers on a private board as
+readily as on a public one, which is where the holes were:
+
+    gh api repos/iderex/operations/vulnerability-alerts -i | head -1
+    HTTP/2.0 204 No Content
+
+The version-update file is a thing a board's TREE carries rather than a setting
+the board holds, and it detects nothing - it is remediation machinery acting on
+what the alerts already found. So it leaves this row for the same reason `zizmor`
+does and not for a new one. Whether a board keeps its dependencies current is a
+different property about a different thing, read a different way, and it is
+`#24`; a row about scanning does not acquire it because both features carry one
+name.
+
+WHAT THE ANSWER DOES NOT DO IS ADD A CONTROL, and a reader who takes it for a
+widening of the row will go looking for a fifth reading that is not there. The
+leg has read `dependabot-alerts` on its own endpoint since it landed, in both
+rows, so what the decision moves is which reading of the row that leg is right
+about rather than anything the leg does:
+
+    grep -c 'judge(b, "dependabot-alerts"' .github/workflows/fleet-alert-sweep.yml
+    1
 
 **`zizmor` IS NOT IN EITHER ROW, AND THIS PAGE CARRIED THE QUESTION AS OPEN.**
 Two decisions stood on `#32` and only one of them named the tool, so neither
@@ -314,9 +349,10 @@ the private row of the baseline rather than a reason anyone owes. Nothing is
 recorded here for them, because a register entry is for a board sitting outside
 its own row and none of them is.
 
-What they get instead is Dependabot and the local gate's own legs. Which of the
-two things called Dependabot that means is separated below, and one of the two is
-swept here now.
+What they get instead is Dependabot alerts and the local gate's own legs. WHICH
+OF THE TWO THINGS CALLED DEPENDABOT THAT MEANS IS DECIDED NOW and this paragraph
+said it was only separated: it is the alerts, at `## The baseline` above, where
+the row is declared and where the reason is, rather than restated here.
 
 ### `iderex/agent-operations` - archived, and judged against no row
 
@@ -472,11 +508,26 @@ and no board short of any of the four controls.
   The one board answering 404 is `iderex/agent-operations`, which is archived and
   has its own entry above. The update half is read in
   `docs/dependabot-across-the-boards.md`, returns 63 of the 73 roster boards
-  without the file, and is swept nowhere here. WHICH OF THE TWO THE BASELINE ROW
-  MEANS IS NOT DECIDED ON THIS PAGE. The decision it records says `dependabot`
-  and nothing finer, and reading it either way changes what `#32` still owes, so
-  it is left as the open question it is rather than settled by whichever reading
-  makes a done-condition easier. The update half is `#24` either way.
+  without the file, and is swept nowhere here.
+
+  WHICH OF THE TWO THE BASELINE ROW MEANS IS DECIDED NOW AND THIS BULLET HELD THE
+  QUESTION OPEN. It read that the decision said `dependabot` and nothing finer,
+  that reading it either way changed what `#32` still owed, and that the question
+  was therefore left rather than settled by whichever reading made a
+  done-condition easier. The row means the ALERTS; the reason is at
+  `## The baseline` above, where the row is declared, rather than restated here.
+  The row is derived rather than pasted, so the figure cannot drift against the
+  row it is about:
+
+      sed -n '/^\*\*Public boards\./,/^$/p' docs/scanning-baseline.md |
+        grep -c 'ALERTS'
+      1
+
+  WHAT DID NOT MOVE WITH THE ANSWER is the update half. It is swept nowhere here,
+  no board's copy is read by anything in this repository, and it is `#24` exactly
+  as it was. What has changed is what its absence MEANS: a board without
+  `.github/dependabot.yml` is not short of its baseline row, so the 63 are a
+  remediation question rather than a scanning hole.
 - `zizmor` IS OUT OF BOTH ROWS AND THIS BULLET HELD THE QUESTION OPEN. It read
   that two decisions stood on `#32` and differed on exactly this, that neither
   reading was available as a fact, and that reading it either way changed what
