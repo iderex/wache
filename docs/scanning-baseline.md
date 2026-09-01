@@ -49,6 +49,34 @@ it, and a sweep must not open a finding on it.
 A private board that later goes public crosses into the public row on the day
 its visibility changes, and the sweep is what should say so.
 
+**`zizmor` IS NOT IN EITHER ROW, AND THIS PAGE CARRIED THE QUESTION AS OPEN.**
+Two decisions stood on `#32` and only one of them named the tool, so neither
+reading was available as a fact and this page said so rather than picking the
+one that made a done-condition easier. The contradiction is resolved on `#32` and
+the answer is that `zizmor` is OUT.
+
+The reason is not a judgement about the tool. What makes this set a baseline is
+that it is turned on as a repository SETTING, so a board either carries it or
+carries a recorded reason, and asking is one call per board with no reading of
+any tree. `zizmor` is a workflow audit that runs as a job inside a board's own
+checks, on that board's schedule, over that board's files, and is named among
+that board's required contexts. That is a check a board OWES, not a setting a
+board CARRIES. Folding it in would make the baseline mean two things at once and
+the cost would land on the guard: a per-board query would have to read workflow
+files to answer a question the settings API cannot, and a baseline that cannot be
+verified in one call stops being verified.
+
+So the public row is three controls and the private row is one, both as stated
+above, and the leg below was already built to exactly that. What that agreement
+does NOT buy is the claim that the leg is therefore right - it shows which
+reading the leg was written to, and the reading is now decided beside it rather
+than inferred from it.
+
+WHAT IS UNCHANGED IS THE ABSENCE ITSELF. No board's `zizmor` state is read
+anywhere in this repository, this board runs none, and a `Waives:` line naming it
+refuses the run rather than being ignored. What has changed is what that absence
+MEANS: nothing to read, rather than a shortfall on every public board.
+
 A board that deliberately sits outside its own row records the reason in the
 register below, in the shape the first entry uses - reason, decider, date, and
 the condition under which the reason expires.
@@ -311,15 +339,21 @@ detected language. All three now carry analyses and `iderex/Typeset` reports
 true on 27 August, stopped being true on 28 August, and was found by re-running
 the sweep rather than by re-reading the sentence.
 
-WHAT THE EXPIRED ENTRY WAS RIGHT ABOUT IS STILL OPEN, AND ONE CLAUSE OF IT WAS
-NOT A FACT. It said the baseline puts `zizmor` over the workflow surface.
-Whether it does is undecided, `## What is not covered here` below is where that
-is recorded, and nothing in this section decides it. What holds either way: the
-workflow surface is most of what these three boards are, a CodeQL analysis at
-`/language:actions` is not a `zizmor` scan, this board runs no `zizmor` today,
-and no board's `zizmor` state is read anywhere in this page. The roster record
-for this board already says it carries none of the five universal guards yet,
-and that is the same absence read from the other side.
+WHAT THE EXPIRED ENTRY WAS RIGHT ABOUT IS ANSWERED NOW, AND ONE CLAUSE OF IT WAS
+NEVER A FACT. It said the baseline puts `zizmor` over the workflow surface. The
+baseline does not: `## The baseline` above carries the decision and the reason,
+and `zizmor` is in neither row. THIS PARAGRAPH SAID THE QUESTION WAS UNDECIDED
+AND POINTED AT `## What is not covered here` FOR IT; both halves of that have
+moved and are corrected here rather than left pointing at a bullet that no longer
+holds the question.
+
+What holds regardless of that answer, and did before it: the workflow surface is
+most of what these three boards are, a CodeQL analysis at `/language:actions` is
+not a `zizmor` scan, this board runs no `zizmor` today, and no board's `zizmor`
+state is read anywhere in this page. The roster record for this board already
+says it carries none of the five universal guards yet, and that is the same
+absence read from the other side. What the decision changes is not the absence
+but what it means - a board without `zizmor` is not short of its baseline row.
 
 ## What reads this page
 
@@ -422,18 +456,22 @@ and no board short of any of the four controls.
   and nothing finer, and reading it either way changes what `#32` still owes, so
   it is left as the open question it is rather than settled by whichever reading
   makes a done-condition easier. The update half is `#24` either way.
-- WHETHER `zizmor` IS IN THE PUBLIC ROW AT ALL IS NOT DECIDED, AND THIS BULLET
-  ASSERTED THAT IT IS. The row this page states names three controls and
-  `zizmor` is not among them, derived rather than pasted so the figure cannot
-  drift against the row it is about:
+- `zizmor` IS OUT OF BOTH ROWS AND THIS BULLET HELD THE QUESTION OPEN. It read
+  that two decisions stood on `#32` and differed on exactly this, that neither
+  reading was available as a fact, and that reading it either way changed what
+  `#32` still owed. The contradiction is taken on `#32` and the answer is that
+  `zizmor` is not part of the baseline; the reason is at `## The baseline`
+  above, where the row is declared, rather than restated here. The row is still
+  derived rather than pasted, so the figure cannot drift against the row it is
+  about:
 
       git show origin/main:docs/scanning-baseline.md |
         sed -n '/^\*\*Public boards\./,/^$/p' | grep -c zizmor
       0
 
-  Two decisions stand on `#32` and they differ on exactly this. The first names
-  `zizmor`; the second is the two-row restatement that `## The baseline` above
-  cites as the decision it records, and it does not:
+  THE TWO DECISIONS BOTH STILL STAND ON THE ISSUE and a reader who finds them
+  will find them disagreeing. The first is superseded on this one point and the
+  second stands as written, which is recorded there rather than tidied away:
 
       gh issue view 32 --repo iderex/wache --json comments \
         --jq '.comments[] | select(.body | test("(?i)^(decision|deciding)"))
@@ -441,17 +479,14 @@ and no board short of any of the four controls.
       true    Decision: the baseline is CodeQL plus secret scannin
       false   Deciding the baseline. The standing rule is that not
 
-  The second does not say `zizmor` is dropped either, so this is a question
-  nobody has answered rather than one this page may answer. Reading it either
-  way changes what `#32` still owes, and picking the reading that makes a
-  done-condition easier is the one thing a correction may not do. It is left
-  open here for the same reason the Dependabot bullet above is.
-- WHAT IS TRUE WHICHEVER WAY THAT QUESTION GOES: no board's `zizmor` state is
-  read anywhere in this repository, and the leg above does not judge it. A
-  `Waives:` line naming it would refuse the run rather than be ignored, which is
-  the register failing closed on a control nothing reads. What that absence
-  MEANS is what the question decides - a shortfall on every public board if
-  `zizmor` is in the row, and nothing to read if it is not.
+- WHAT DID NOT MOVE WITH THE ANSWER, and this is the half worth reading. No
+  board's `zizmor` state is read anywhere in this repository, this board runs
+  none, and the leg above does not judge it. A `Waives:` line naming it refuses
+  the run rather than being ignored, which is the register failing closed on a
+  control nothing reads. What the decision changes is only what that absence
+  MEANS: nothing to read, rather than a shortfall on every public board. So a
+  board that wants `zizmor` still gets nothing from this page, and that is now a
+  scope statement instead of a gap.
 - Whether a board that reports `analyses present` analyses the whole tree, or
   which languages its analysis covers. The endpoint says an analysis exists.
 - THE FIGURES ABOVE STILL COME FROM COMMANDS SOMEBODY CHOSE TO RUN, and this
