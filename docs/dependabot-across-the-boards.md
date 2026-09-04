@@ -300,3 +300,91 @@ WHAT THIS READING DOES NOT COVER. Whether any of the eleven files without the
 contract has changed content since 29 August; blob ids were compared within this
 reading and not against the earlier one. And why the two new boards configured an
 updater, which is their own decision and is written nowhere this page can read.
+
+## The reading on 4 September, and the contract count is still one
+
+Re-read against the roster at `iderex/operations` `origin/main`
+`e4ce672f773cc675bfe5b88a6e7899c7bf6f66d8`, 74 boards where the section above
+had 73. The board added since is `erawright/steinbruch`, and it carries no
+`dependabot.yml`.
+
+THE FILE CAME BACK ON THE SWEEP THAT READS TREES, not on a `contents` call per
+board. `docs/unicode-guard-copies.md` sets that route out under its own 4
+September reading; the same four queries carry
+`dep: object(expression:"HEAD:.github/dependabot.yml")` beside the workflows
+tree, so this page and that one are two readings of one fetch rather than two
+fetches that have to be argued into agreement. What it changes here is the trap
+this page opens on: the sha every section above validates as hexadecimal before
+counting it is now a blob object's own `oid` field, and an error body has no
+route into that column to be validated out of.
+
+    62 absent
+    12 present, and 12 distinct blob ids
+
+The count is what the section above records. Whether it is the same twelve
+BOARDS is not a comparison this page could make until now, because that reading
+kept no list, so the list is here:
+
+    Flowfin/core                           8d318eacc2fb0a6967779f5410e6e05e97a97ba3
+    Flowfin/jellyfin-plugin-invites        549a1abd7b4daa980f3c4e7e622bca77f5afd5a7
+    Flowfin/jellyfin-plugin-sso            c50ea5247148f0a3011bb2f87875c7e8edad13c9
+    Flowfin/jellyfin-plugin-watchlist      a0f8498b8a4c6f5fc0ae1f4ecbae2047e7666d8b
+    Flowfin/lab                            87affb3ca20e7d373c049faf93682dac660bf27d
+    Flowfin/site                           f34392a1aea9a5685b9ced0cc52db94686020cc2
+    iderex/Easy-Compliance-Manager         46a0f5e6baf5e667b0f314ca5e9ed67708c341a3
+    iderex/cudec                           880e0e3d6cb4a6e0bf3016f756bb6ba0cf512ba9
+    iderex/lichttisch                      92f0ad415f82f6233cc6c24532cae5ffa10c915b
+    iderex/retusche                        f9a5231933406b319fd657e8b1eabe6443f39437
+    iderex/swarm.asm                       ad0be0bc08b68146d3e1d4bd7385ed5effee0c5c
+    iderex/wache                           7b0444a82e1268a4a0dd1fc865ef0fed6c98f845
+
+The two boards the section above names as having arrived after the template,
+`Flowfin/core` and `Flowfin/jellyfin-plugin-watchlist`, are both in that list.
+So is the one id an earlier reading wrote down, in the reproduction
+`docs/standardisation-survey.md` carries of the 404 trap:
+
+    git grep -n 'iderex/retusche f9a52' -- docs/standardisation-survey.md
+    docs/standardisation-survey.md:132:    iderex/retusche f9a5231933406b319fd657e8b1eabe6443f39437
+
+which is the id above, so that copy has not moved since 27 August. Beyond those
+three the set is uncompared, for the reason above.
+
+The contract lines, read off all twelve rather than off a sample, with the
+comment prefix stripped so the two values print as they would be resolved:
+
+    jq -r '.data | to_entries[] | .value | select(.dep != null)
+           | [ .nameWithOwner,
+               (.dep.text | split("\n")
+                | map(select(test("^#   (origin|taken-at): ")))
+                | map(sub("^#   [a-z-]+: +";""))
+                | join(" | ")) ] | @tsv' batch.*.json | sort |
+      awk -F'\t' '{printf "%-38s %s\n", $1, ($2=="" ? "(neither line)" : $2)}'
+
+    Flowfin/core                           (neither line)
+    Flowfin/jellyfin-plugin-invites        (neither line)
+    Flowfin/jellyfin-plugin-sso            (neither line)
+    Flowfin/jellyfin-plugin-watchlist      (neither line)
+    Flowfin/lab                            (neither line)
+    Flowfin/site                           (neither line)
+    iderex/Easy-Compliance-Manager         (neither line)
+    iderex/cudec                           (neither line)
+    iderex/lichttisch                      (neither line)
+    iderex/retusche                        (neither line)
+    iderex/swarm.asm                       (neither line)
+    iderex/wache                           iderex/wache templates/dependabot.yml | a637780d22d9472988fc5c330643de63b4e5e68a
+
+One copy of twelve names an origin and a commit, as on 29 and 31 August, and it
+is this board's. The template has stood unchanged since it landed:
+
+    git log --format='%h %ad %s' --date=short -- templates/dependabot.yml
+    f211804 2026-08-28 Hold the canonical dependabot block in one place [#24]
+
+so a week has passed in which a board could have taken it and none has.
+
+WHAT THIS READING DOES NOT COVER. Whether any of the eleven files without the
+contract changed content between 31 August and now: that reading kept no ids, so
+the comparison starts at the table above rather than reaching back. And why no
+board has taken the template is a decision taken on those boards and written
+nowhere this page can read - the leg that would put it in front of them is still
+`#31`'s, and the sentence the section above proves about the scheduled sweep is
+unchanged.
