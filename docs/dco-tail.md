@@ -12,7 +12,7 @@ proposes nothing. What content the drift should be removed against is the
 second line of that done-condition, and the last section here is the reason it
 cannot be the majority copy unchanged.
 
-THE POPULATION HAS MOVED SINCE, AND `Re-read on 30 August 2026` NEAR THE END IS
+THE POPULATION HAS MOVED SINCE, AND THE TWO `Re-read` SECTIONS NEAR THE END ARE
 WHERE THAT IS RECORDED. Two singleton copies are outside everything between here
 and there. Every figure in the sections before it is 27 August's and is left as
 it was taken.
@@ -459,6 +459,176 @@ So the tail grew while the migration waited, by one hand-written copy in the
 three days since the standard existed. That is a reading of three days and not
 a trend.
 
+## Re-read on 4 September 2026: the tail has not moved, and no file name was hiding a caller
+
+Taken against the roster in `iderex/operations` at `origin/main`
+`3dbef1117780a0cb202dd4362d5bb27b56778589`. Both re-readings above asked each
+board for one path, `.github/workflows/dco.yml`, and both named the file name as
+their own bound. This one lists every board's whole workflow directory and then
+reads every file in it, so that bound is gone rather than argued with.
+
+```
+boards | wc -l
+74
+
+boards | while read -r r; do
+  gh api "repos/$r/contents/.github/workflows" --jq '.[] | "\(.name)\t\(.sha)"' 2>/dev/null |
+    while IFS="$(printf '\t')" read -r n s; do printf '%s\t%s\t%s\n' "$r" "$n" "$s"; done
+done > wf.tsv
+
+cut -f1 wf.tsv | sort -u | wc -l
+73
+wc -l < wf.tsv
+924
+cut -f3 wf.tsv | sort -u | wc -l
+789
+```
+
+74 roster boards, 73 of them holding a `.github/workflows` directory, 924 files
+between them and 789 distinct blobs. `iderex/lagetisch` is the
+seventy-fourth and tracks no such directory at all, so it is outside this
+reading rather than missing from it:
+
+```
+gh api repos/iderex/lagetisch/contents/ --jq '[.[].name]|join(" ")'
+.gitattributes .gitignore Cargo.lock Cargo.toml README.md SECURITY.md examples knowledge src tests tokens.txt
+```
+
+I fetched every one of the 789 blobs and checked each against the id the
+listing gave for it, so the bytes read below are the bytes tracked:
+
+```
+while read -r s; do
+  gh api "repos/<the board holding it>/git/blobs/$s" --jq '.content' | base64 -d > "blobs/$s.txt"
+done < shas.txt
+
+bad=0
+while read -r s; do
+  [ "$(git hash-object "blobs/$s.txt")" = "$s" ] || bad=$((bad+1))
+done < shas.txt
+echo "$bad mismatch(es) of $(wc -l < shas.txt)"
+0 mismatch(es) of 789
+```
+
+## The population is where 30 August left it
+
+```
+awk -F'\t' '$2=="dco.yml"{print $1"\t"$3}' wf.tsv | sort > dco.tsv
+wc -l < dco.tsv
+63
+cut -f2 dco.tsv | sort -u | wc -l
+33
+cut -f2 dco.tsv | sort | uniq -c | sort -rn | awk '{printf "%s ", $1} END{print ""}'
+29 3 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+awk -F'\t' '$2=="5b53eab934abf424af0a207534d1864744c2395e"' dco.tsv | wc -l
+29
+```
+
+63 copies, 33 distinct contents, the same cluster of 29 and the same cluster of
+3, 31 singletons. The 31 are the same 31, so every difference this page places
+is still a difference somebody holds and no board has arrived unplaced:
+
+```
+cat table28 table2 <(echo iderex/wache) | sort > placed31
+cut -f2 dco.tsv | sort | uniq -c | awk '$1==1{print $2}' > singles
+grep -F -f singles dco.tsv | cut -f1 | sort > singletons-now
+comm -13 placed31 singletons-now
+comm -23 placed31 singletons-now
+```
+
+Both directions are empty. `iderex/wache` is in that set for the reason the 30
+August section gives and is this board's own source file rather than a copy.
+
+THE NAME WAS NOT HIDING A `dco.yml` EITHER, which the earlier readings could
+only assume:
+
+```
+grep -iE 'dco|sign.?off|certificate' wf.tsv | awk -F'\t' '{print $2}' | sort | uniq -c
+     63 dco.yml
+```
+
+## The tail grew once and has not grown again
+
+The 30 August reading found `iderex/swarm.asm`'s copy written a day after the
+shared gate merged here, and said in as many words that one copy in three days
+is a reading of three days and not a trend. Seven days on there is a second
+point. No board other than this one has touched its `dco.yml` since 28 August:
+
+```
+cut -f1 dco.tsv | while read -r r; do
+  printf '%s\t%s\n' "$r" \
+    "$(gh api "repos/$r/commits?path=.github/workflows/dco.yml&per_page=100" \
+         --jq '[.[].commit.committer.date] | first')"
+done > dco-dates.tsv
+
+sort -t"$(printf '\t')" -k2,2r dco-dates.tsv | head -3
+iderex/wache	2026-08-30T16:15:54Z
+iderex/swarm.asm	2026-08-28T15:58:51Z
+iderex/Easy-Compliance-Manager	2026-08-26T21:53:17Z
+awk -F'\t' '$2>"2026-09-01"' dco-dates.tsv | wc -l
+0
+```
+
+So the tail is static rather than growing, and it is static in both directions:
+nothing arrived and nothing left.
+
+## Still nothing calls the shared gate, now read over every workflow file
+
+The 30 August and 1 September readings took this zero twice, once by fetching
+each `dco.yml` and once by a code search, and both said what they could not see.
+This one walks all 924 files:
+
+```
+while IFS="$(printf '\t')" read -r r n s; do
+  grep -ohE 'uses:.*wache/\.github/workflows/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+' "blobs/$s.txt" |
+    while read -r u; do printf '%s\t%s\t%s\n' "$r" "$n" "$u"; done
+done < wf.tsv | sort -u | grep -c 'dco\.yml@'
+0
+```
+
+Zero across every workflow file of every roster board, eight days after the gate
+merged here. The same walk finds twenty call sites for `pr-hygiene.yml` and one
+for `unicode-guard.yml`, so it is a walk that does find callers where they
+exist and not a query that returns nothing.
+
+## No tag has reached the `#49` repair
+
+The 30 August reading closed with a board following the migration route either
+pinning a commit or pinning `v1.3.0` and carrying the matcher `#49` repaired.
+That is unchanged:
+
+```
+git ls-remote --tags origin | grep -c 'refs/tags/'
+8
+git tag --contains 71baad6
+```
+
+Four tags exist, `v1.0.0` through `v1.3.0`, and the last command prints nothing:
+no tag reaches `71baad6`. `README.md` says so at the pin site rather than
+leaving it to be found, which is what `#58` landed.
+
+## What the re-reading does to the done-condition
+
+The first line still covers the population, and covers it without the file-name
+bound the earlier two readings carried. Lines two, three and four are unmoved and
+none of them is unmoved for want of an answer here: the three deviations that
+declare nothing and the two declarations that have gone stale are all still in
+the state this page places them in, read again tonight out of the fetched bytes.
+
+```
+grep -c 'DCO text is not in this tree yet' <Flowfin/lab's dco.yml>
+1
+gh api repos/Flowfin/lab/contents/DCO --jq '.name'
+DCO
+grep -c 'CLAUDE.md directive 2' <iderex/Easy-Compliance-Manager's dco.yml>
+1
+gh api repos/iderex/Easy-Compliance-Manager/contents/CLAUDE.md --jq '.name'
+{"message":"Not Found", ... "status":"404"}
+```
+
+Writing the sentence each of those five owes is a change to those boards' trees,
+which is where lines two, three and four have been since 27 August.
+
 ## Not evaluated
 
 Whether any of the 60 copies has stopped refusing what it claims to refuse. This
@@ -479,3 +649,15 @@ copies counted there has been read as a run either, the two placed above
 included. Both were judged by reading their files and by checking the claims
 those files make against their own trees and trackers. Whether either one
 refuses what it says it refuses is not measured here.
+
+The 4 September reading widens the first of those three again rather than
+replacing it: none of the 63 copies has been read as a run there either, and
+whether any of them still refuses what it claims to refuse is not measured on
+this page at any date.
+
+Two bounds are that reading's own. Every listing and every blob comes from each
+board's DEFAULT branch, which is what the contents API answers with when no ref
+is given, so a gate living only on another branch is outside it. And 924 files
+is what the 73 directories held at the moment they were listed; a file added
+while the walk was running is outside it too, and the walk took about twenty
+minutes.
