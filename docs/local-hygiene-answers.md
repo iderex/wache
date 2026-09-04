@@ -299,7 +299,12 @@ else.
 How many boards call this check from a file not named `shared-hygiene.yml`.
 This board does, from its own `hygiene.yml`, which is how that bound was found;
 I did not fetch all 902 workflow files to close it, so nineteen is a floor on
-the callers outside this board and not a total.
+the callers outside this board and not a total. THAT BOUND IS CLOSED, on 4
+September 2026, by a walk over all 924 workflow files of the 73 roster boards
+that hold a workflow directory: nineteen is the total, and every one of the
+nineteen calls from `shared-hygiene.yml`.
+`docs/caller-inputs-and-the-two-late-copies.md` carries that walk, its commands,
+and the two call sites the code search missed.
 
 Whether the other rules of `iderex/pruefstand` and of the seven gates found
 under another filename hold anything else the shared check has no form of. I

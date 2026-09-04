@@ -5,6 +5,10 @@ Taken on 1 September 2026 against the roster in `iderex/operations` at
 the output of the command written beside it. The figures move every time a board
 edits its caller, so re-run the command rather than citing this page.
 
+THE FIGURES HAVE BEEN RE-TAKEN SINCE, AND `Re-read on 4 September 2026` NEAR
+THE END IS WHERE THAT IS RECORDED. Every figure in the sections before it is 1
+September's and is left as it was taken.
+
 `#27` reads the boards that call this check and keep a gate of their own, and
 every reading it holds so far has read the LOCAL copies. None of them read the
 CALLER. This is that reading, and it changes what the duplication on those
@@ -306,6 +310,200 @@ reads whole commit messages to find issue references and not to ask whether a
 body exists. So the counts that ruling rests on are unmoved: one board, one
 board, three boards.
 
+## Re-read on 4 September 2026: the walk the index could not do, and what it found
+
+Taken against the roster in `iderex/operations` at `origin/main`
+`3dbef1117780a0cb202dd4362d5bb27b56778589`. This page closes with the bound that
+the code search above is an index rather than a walk of every file, and with
+`docs/local-hygiene-answers.md`'s older form of the same thing: "I did not fetch
+all 902 workflow files to close it, so nineteen is a floor on the callers outside
+this board and not a total." I fetched them. Nineteen is the total, and the index
+is measurably not.
+
+```
+boards | while read -r r; do
+  gh api "repos/$r/contents/.github/workflows" --jq '.[] | "\(.name)\t\(.sha)"' 2>/dev/null |
+    while IFS="$(printf '\t')" read -r n s; do printf '%s\t%s\t%s\n' "$r" "$n" "$s"; done
+done > wf.tsv
+
+cut -f1 wf.tsv | sort -u | wc -l
+73
+wc -l < wf.tsv
+924
+```
+
+73 of the 74 roster boards hold a `.github/workflows` directory and 924 files sit
+in them. `iderex/lagetisch` holds no such directory and is outside this reading.
+Every distinct blob was fetched and hash-checked against the id the listing gave
+for it, so the bytes read below are the bytes tracked; `docs/dco-tail.md`'s 4
+September section carries that check and its output.
+
+## Every call site, over every file
+
+```
+while IFS="$(printf '\t')" read -r r n s; do
+  grep -nE 'uses:.*(wache/\.github/workflows|\./\.github/workflows)' "blobs/$s.txt" |
+    while read -r l; do printf '%s\t%s\t%s\n' "$r" "$n" "$l"; done
+done < wf.tsv | sort -u | grep -c 'pr-hygiene\.yml'
+20
+```
+
+Twenty call sites. Nineteen are boards other than this one, every one of them in
+a file named `.github/workflows/shared-hygiene.yml`, and the twentieth is this
+board's own `hygiene.yml` calling the file beside it by relative path. So the
+nineteen that three readings carried as a floor is a total over the roster's
+whole workflow corpus, and the file name was not hiding a caller after all.
+
+THE INDEX MISSES TWO OF THE TWENTY, which is worth more than the confirmation is.
+The same search this page ran on 1 September, run again tonight:
+
+```
+gh search code 'wache/.github/workflows/pr-hygiene.yml' --json repository,path \
+  --limit 100 --jq '.[] | "\(.repository.nameWithOwner)\t\(.path)"' | sort -u |
+  grep -c 'shared-hygiene.yml'
+18
+```
+
+Eighteen where the walk finds nineteen. `iderex/stammtisch`'s caller is absent
+from the result and present in its tree, and this board's own `hygiene.yml` is
+absent too. The 1 September reading called the two methods agreeing on nineteen
+"two methods agreeing and not a proof", and that was right in the direction it
+mattered: they do not agree today, and the walk is the one to believe. A count
+taken off that index is a floor, and the sentence above saying the filename bound
+was gone rested on the weaker of the two methods.
+
+## Nothing has been removed and no pin has moved
+
+```
+awk -F'\t' '$2=="pr-hygiene.yml"{print $1}' wf.tsv | sort > has-local
+awk -F'\t' '$2=="shared-hygiene.yml"{print $1}' wf.tsv | sort > has-shared
+wc -l < has-local ; wc -l < has-shared ; comm -12 has-local has-shared | wc -l
+34
+19
+17
+```
+
+Seventeen boards still keep a `pr-hygiene.yml` beside the call,
+`iderex/pruefstand` still keeps its gate under `hygiene.yml`, and
+`iderex/lesesaal` is still the one caller with neither. Eighteen of nineteen,
+exactly as the 31 August sweep found it. Not one copy has been removed.
+
+THE THIRTY-FOUR INCLUDES THIS BOARD'S SOURCE FILE, and no reading on the hygiene
+side has said so. `#27` opens on "the 34 local copies of `pr-hygiene.yml` across
+the roster", and one of the 34 is the shared workflow itself:
+
+```
+awk -F'\t' '$1=="iderex/wache" && $2=="pr-hygiene.yml"{print $3}' wf.tsv
+bacc56abe9b55e804ad2d6b1129eee3aa8b1fa2d
+git rev-parse origin/main:.github/workflows/pr-hygiene.yml
+bacc56abe9b55e804ad2d6b1129eee3aa8b1fa2d
+```
+
+That is the same confound `docs/dco-tail.md` names for `iderex/wache` on the DCO
+side, arriving here unremarked. There are 33 copies and one source, and 33
+distinct contents among the copies rather than 34.
+
+The pins have not moved either, and no caller file has been touched since 27
+August:
+
+```
+grep -oE '@[0-9a-f]{40}' <the twenty call sites> | sort | uniq -c
+      6 @113085b269d3437a3f96ff9e7060b64b0af88ab1
+     13 @9b311243c2d0d0ced7feb957a20bc178acce6a5d
+
+while read -r r; do
+  printf '%s\t%s\n' "$r" \
+    "$(gh api "repos/$r/commits?path=.github/workflows/shared-hygiene.yml&per_page=100" \
+         --jq '[.[].commit.committer.date] | first')"
+done < has-shared | sort -t"$(printf '\t')" -k2,2r | head -2
+iderex/messstube	2026-08-27T14:00:40Z
+iderex/pruefstand	2026-08-27T06:38:21Z
+```
+
+Thirteen of the nineteen are below the `v1.2.0` floor `#27`'s second
+done-condition line names, and the newest caller file on any board is eight days
+old. The sequence landed on 27 August, gained its ruleset step on 31 August and
+its subject-rule step on 1 September, and no board has executed a step of it.
+
+## The three carried answers reach no board
+
+`#35` carried `subject_exempt_authors`, `outside_contributions_exempt` and
+`message_is_ascii` into the shared check on 27 August, so that a board deleting
+its copy would not delete its answer. A caller can pass an input only if the ref
+it pins declares it:
+
+```
+for ref in 9b311243 113085b2 4d91113f origin/main; do
+  git show "$ref:.github/workflows/pr-hygiene.yml" |
+    sed -n '/^ *inputs:/,/^jobs:/p' | grep -E '^      [a-z_]+:' | tr -d ' :' | paste -sd' ' -
+done
+subject_names_issue
+subject_names_issue
+subject_names_issue subject_exempt_authors outside_contributions_exempt message_is_ascii
+subject_names_issue subject_exempt_authors outside_contributions_exempt message_is_ascii body_names_issue body_exempt_authors resolve_referenced_numbers issue_read_token
+```
+
+`9b311243` is `v1.0.0` and `113085b2` is `v1.2.0`, and every one of the nineteen
+callers pins one or the other. So all three inputs are on the mainline, all three
+are in `v1.3.0`, and not one of them is reachable from any calling board eight
+days after they landed. The first done-condition line is met on this board's side
+and its repair has arrived nowhere.
+
+## One board met the cancellation and repaired it the other way
+
+The second done-condition line asks that the pins reach `v1.2.0` before any copy
+is removed, "so no board is left with the cancellation and no local gate". On 2
+September `iderex/stammtisch` took the cancellation off its own board without
+touching its pin, by namespacing the group its local copy declares:
+
+```
+gh api "repos/iderex/stammtisch/commits?path=.github/workflows/pr-hygiene.yml&per_page=3" \
+  --jq '.[] | "\(.commit.committer.date)  \(.sha[0:7])  \(.commit.message | split("\n")[0])"'
+2026-09-02T05:33:14Z  5abc17e  Stop the shared hygiene call from cancelling this board's own hygiene run
+```
+
+The diff replaces `pr-hygiene-${{ github.event.pull_request.number }}` with
+`${{ github.workflow }}-${{ github.event.pull_request.number }}`, and the comment
+it adds states the mechanism `#4` measured here, reached independently on that
+board. Its pin is still `9b311243`, which is `v1.0.0`.
+
+WHAT THAT DOES TO THE SEQUENCE IS NOT NOTHING. The floor in the second line is a
+proxy: what it protects against is the shared run cancelling the local one, and
+the pin is how the sequence here proposes to remove it. A board that has removed
+the hazard by the other route satisfies the line's purpose and fails its wording,
+and the sequence in `README.md` gives a reader no way to tell those two states
+apart. Whether that wording should read the group rather than the tag is a
+question this page does not take.
+
+## What is unchanged
+
+The removals are other boards' trees, one board at a time, pins at or above
+`v1.2.0` first, `iderex/lesesaal` left alone. Nothing here lands any of them, and
+nothing has landed anywhere.
+
+The stranded required check is still on two boards and nowhere else, re-read
+tonight across the whole removal set:
+
+```
+while read -r b; do
+  gh api "repos/$b/rulesets" --jq '.[].id' | while read -r id; do
+    gh api "repos/$b/rulesets/$id" --jq '[.rules[]? |
+      select(.type=="required_status_checks") |
+      .parameters.required_status_checks[]?.context] | join(",")'
+  done
+done < <(cat removal-set; echo iderex/pruefstand)
+```
+
+`iderex/hoersaal` requires `pr-hygiene` and `iderex/stammtisch` requires
+`Deterministic PR-hygiene checks`. Three boards of the set require `local-gate`
+and nothing a hygiene file produces, and the remaining thirteen require no status
+check at all.
+
+`iderex/hoersaal` is also still the only caller of the nineteen that leaves
+`subject_names_issue` alone and takes the default of `true`. It is the board with
+a required context only its own copy produces, and the board whose commits the
+shared route actually reads, and it is one board.
+
 ## Not evaluated
 
 Whether the eighteen boards passing `subject_names_issue: false` intend it as a
@@ -327,3 +525,22 @@ done-condition does not reach them.
 Whether the code search above sees every caller. It is an index rather than a
 walk of every file, and its lag is not measured here. It agrees with the
 filename sweep on nineteen, which is two methods agreeing and not a proof.
+
+The last of those five is answered by the 4 September section above and the
+answer is not the reassuring one: the index does NOT see every caller, it missed
+two of the twenty call sites on the night it was re-run, and the walk over all
+924 workflow files is what nineteen now rests on.
+
+Three bounds are that walk's own. Every listing and every blob comes from each
+board's DEFAULT branch, so a caller living only on another branch is outside it.
+The 924 files are what the 73 directories held at the moment they were listed.
+And a call reaches this check only through `uses:`, which is what the grep looks
+for; a board invoking the shared rules some other way would not appear, and I
+know of none that does.
+
+Whether `iderex/stammtisch`'s own claim about its runs holds. Its comment says
+every run of its Shared hygiene workflow cancelled the local one. I read the two
+workflows' run listings on that board rather than their jobs, and what those show
+is seven Shared hygiene runs all concluding `success` and one local run
+concluding `cancelled` in the same minute as one of them. That is one
+coincidence, not a per-run audit, and it neither confirms nor refutes the claim.
