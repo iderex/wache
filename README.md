@@ -101,6 +101,51 @@ at all have a section each at the end of this one, so the reason sits at the
 refusal rather than in a count written here. The reading is `#27` and the two
 answers that need the caller's permission are `#36`.
 
+READ YOUR PIN AND YOUR OWN GROUP STRING, BECAUSE BELOW `v1.2.0` THIS CHECK CAN
+CANCEL YOUR LOCAL ONE. A called workflow's
+`concurrency` applies to the CALLING board's run, so where your copy and this
+one spell the same group with `cancel-in-progress`, the shared run takes your
+own gate off the board before it executes a step, on every push. A cancelled
+gate blocks nothing where no status check is required, so it looks present and
+judges nothing. Delete your copy in that state and the board has neither for the
+length of a run, which is the loss the sequence below exists against rather than
+a version-hygiene point. `#4` is where it was measured happening.
+
+TWO THINGS DECIDE IT AND ONLY ONE OF THEM IS THE TAG. What collides is the group
+STRING the two files spell. The pin is a proxy for it, because `v1.2.0` is the
+release where this check namespaced its own group:
+
+```
+$ for t in v1.0.0 v1.2.0; do
+    printf '%-8s ' "$t"
+    git show "$t:.github/workflows/pr-hygiene.yml" | sed -n 's/^ *group: *//p'
+  done
+v1.0.0   pr-hygiene-${{ github.event.pull_request.number }}
+v1.2.0   wache-pr-hygiene-${{ github.event.pull_request.number }}
+$ gh api "repos/$BOARD/contents/.github/workflows/pr-hygiene.yml" --jq '.content' |
+    base64 -d | sed -n '/^concurrency:/,+2p'
+```
+
+So four states, and the proxy separates them in only one direction. At or above
+`v1.2.0` you are not exposed, whatever your copy spells. Below it and with a copy
+declaring no `concurrency` block at all, there is no group for the shared run to
+cancel. Below it and with a copy spelling something of its own, you are not
+exposed either - `iderex/stammtisch` reached that state on 2 September by
+renaming the group in its own file rather than by moving its pin, which still
+reads `9b311243`, and the reading is in
+[`docs/caller-inputs-and-the-two-late-copies.md`](docs/caller-inputs-and-the-two-late-copies.md).
+Below it and with a copy spelling the bare `pr-hygiene-<number>`, you are
+exposed, and the pin is what to move first.
+
+THE SEQUENCE STILL ASKS FOR THE PIN, and reading the group does not replace it.
+The group tells you whether you are exposed today; it does not put your board on
+a release that declares the inputs the example below passes, and a pin that
+declares too few of them reaches `startup_failure` with no job at all rather
+than falling back. `#27`'s second done-condition names the tag and not the
+group, and whether that wording should read the group instead is open there and
+is not answered here. So this is the step that comes before the three below:
+pin, then read, then delete.
+
 READ YOUR OWN COPY BEFORE YOU DELETE IT and carry its answer across in the same
 change, where a reader can see it. Every default below is what this check
 already did, so a board that adds nothing moves nowhere.
