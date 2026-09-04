@@ -42,6 +42,90 @@ the check it holds: a contract nobody has executed is a paragraph.
 which `taken-at` first resolved to a commit instead of the canonical side being
 supplied by hand.
 
+### If you are taking this template
+
+The steps, in order. It is four files' worth of reading otherwise, spread over a
+template comment, a drift test and a version history, and the third step below
+is the one nobody would think to look for.
+
+1. **Copy `templates/dependabot.yml` into your board as
+   `.github/dependabot.yml`.** GitHub reads that path out of your repository and
+   nothing on this board executes there, so the copy is yours from the moment it
+   lands.
+
+2. **Replace the two contract lines in the leading comment** with the path the
+   file came from and the 40-character `iderex/wache` commit you took it at:
+
+   ```
+   #   origin: iderex/wache templates/dependabot.yml
+   #   taken-at: <the 40-character iderex/wache commit this copy was taken from>
+   ```
+
+   Both lines or neither. A copy carrying one of them resolves to nothing and is
+   not judged as drifted - it is not judged at all, which is the third state the
+   drift test describes and the one that looks like agreement from a distance.
+
+3. **IF YOUR BOARD CALLS `pr-hygiene.yml` WITHOUT PASSING
+   `subject_names_issue: false`, ADD THE EXEMPTION IN THE SAME CHANGE, AND IT
+   MAY COST YOU A PIN BUMP.** Dependabot opens pull requests whose commit
+   subjects name no issue and cannot. `subject_names_issue` defaults to `true`,
+   so on such a board every Dependabot pull request is refused from the day the
+   file lands - a red gate produced by a change that looks like configuration.
+   The way out is `subject_exempt_authors`, which this board passes for exactly
+   this reason. Read what your ref declares before you rely on it:
+
+   ```sh
+   $ git show 9b311243c2d0d0ced7feb957a20bc178acce6a5d:.github/workflows/pr-hygiene.yml |
+       sed -n '/^on:/,/^permissions:/p'
+   on:
+     workflow_call:
+       inputs:
+         subject_names_issue:
+           description: 'Every non-merge commit names an issue in its subject'
+           type: boolean
+           default: true
+           required: false
+
+   permissions: {}
+   ```
+
+   That is `v1.0.0`, and the exemption is not in it. `subject_exempt_authors`
+   arrived in `v1.3.0`, so a board pinned at `v1.0.0` or `v1.2.0` has to bump to
+   `v1.3.0` in the same change - and that bump crosses the line-by-line
+   closing-keyword refusal `## Versions` describes, which is a behaviour change
+   of its own. Run the command above against the ref YOUR board pins rather than
+   reading the pin's name.
+
+   Read on 5 September 2026 over the 74 boards the roster holds, nineteen boards
+   outside this one call the check, eighteen of them pass
+   `subject_names_issue: false`, and one does not: `iderex/hoersaal`, pinned at
+   `v1.0.0`, whose own comment says the subject rule is deliberately on there.
+   That is the single board this step is about today, and the count moves
+   whenever a board changes its call, so re-run it rather than trusting the
+   number:
+
+   ```sh
+   gh api "repos/<board>/contents/.github/workflows/shared-hygiene.yml" \
+     --jq '.content' | base64 -d | grep -A5 'uses:.*pr-hygiene'
+   ```
+
+4. **Add your board's own ecosystems BELOW the `github-actions` block.**
+   `dependabot.yml` is language-shaped: every board that carries one declares
+   `github-actions` and then `nuget`, `gomod`, `cargo` or `uv`. Leave the
+   `github-actions` block byte-identical so the drift test can read it, and put
+   everything of your own after it.
+
+5. **Nothing on this board writes into yours.** The drift test measures and
+   reports; moving a copy forward is your board's own change. What that test is
+   and how to run it by hand is
+   [`docs/dependabot-across-the-boards.md`](docs/dependabot-across-the-boards.md).
+
+WHAT THIS SEQUENCE DOES NOT COVER. A board running its OWN pull-request hygiene
+implementation rather than calling this one: thirty-four boards hold a local
+`pr-hygiene.yml`, their subject rules were not read, and step 3 says nothing
+about them. And whether an updater is wanted on your board at all, which is your
+board's decision and not a step here.
+
 `docs/standardisation-survey.md` is the reading behind what comes here next: what
 the boards hold more than once, how far the copies have drifted, and the shapes
 standardisation could take. It ends in a decision request rather than in an
