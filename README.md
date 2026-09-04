@@ -616,6 +616,62 @@ The reading behind those figures is
 a time, each difference placed as drift or as a board-local deviation, with the
 command beside every number.
 
+### If you are deleting a local copy of this gate
+
+Sixty-two boards hold a hand-written `dco.yml` and none of them calls this one.
+Replacing a copy with a call is four things in one change, and this is the
+sequence, so it is written down here rather than in a tracker comment.
+
+READ YOUR RULESET FIRST, BECAUSE THE DELETE CAN STRAND A REQUIRED CHECK. If your
+branch ruleset requires the status check your local file produces, deleting the
+file leaves a required context that is never reported again, and a required
+check that never reports leaves every pull request PERMANENTLY PENDING rather
+than red - nothing merges and nothing says why. Eleven boards are in that
+position today:
+
+```
+$ for id in $(gh api "repos/$BOARD/rulesets" --jq '.[].id'); do
+    gh api "repos/$BOARD/rulesets/$id" --jq '[.rules[]? |
+      select(.type=="required_status_checks") |
+      .parameters.required_status_checks[]?.context] | .[]'
+  done
+```
+
+THE NAMES MATCH AND THAT IS EXACTLY THE TRAP. This gate's job is called
+`DCO sign-off`, which is the string all eleven of those rulesets require, so a
+board comparing the two names concludes they line up. A called workflow's check
+run arrives prefixed with the CALLING job's id, so what reports from the example
+above is `dco / DCO sign-off` and the bare `DCO sign-off` is never reported
+again. Measured on this board's own pull request `#75`, where
+`hygiene / Deterministic PR hygiene` is a job id here and a job name in the
+workflow it calls. Do not compare the names; read the ruleset and then read a
+run.
+
+So on a board whose ruleset names its local gate, the ruleset edit belongs in
+the same change as the delete: take the old context out and put the one your
+caller actually produces in, read off a run rather than typed. The reading
+behind the eleven is
+[`docs/dco-rulesets-and-the-delete.md`](docs/dco-rulesets-and-the-delete.md) and
+the issue is `#25`.
+
+THEN THE THREE THAT ARE ABOUT YOUR OWN TREE, in the same change as the delete:
+
+- Add the caller, pinned as `## Pin by hash, not by branch` below asks.
+- Set `references` to the paths your board actually holds. A path you declare
+  and do not track reds your own pull request, which is the point.
+- Set `exempt_authors` to the identities your tree actually starts, and read
+  `## Versions` below first: the pin the example above names is looser than
+  `main` on what that list lets past, and no tag carries the repair.
+
+A board that deletes first and reads afterwards has already lost the answer.
+
+THERE IS NO PIN-FIRST STEP HERE AND THE HYGIENE SEQUENCE HAS ONE, which is a
+difference worth stating so a reader does not carry the wrong sequence across.
+That step exists because below `v1.2.0` the hygiene check claimed a group its
+callers' own copies also spelled, so the shared run cancelled the local gate.
+This gate was namespaced from its first commit and no copy of it spells that
+string; the counts and the command are in the reading above.
+
 ## Pin by hash, not by branch
 
 Callers pin by commit hash with the version in a comment beside it:
