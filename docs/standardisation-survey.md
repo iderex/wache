@@ -218,6 +218,13 @@ Seventeen boards appear, every one of them through
 is a workflow with no caller, and the 63 copies are exactly as unstandardised as
 they were before it existed.
 
+THAT IS ANSWERED AND THE ANSWER IS RETIREMENT, on `#28`, 4 September 2026. The
+shared copy is off `main` since 5 September, the 63 boards keep the checks they
+already run, and this board runs its own in `guards.yml` rather than publishing
+one. The `gh search code` query printed above also stopped reproducing its own
+count on 30 August; `docs/unicode-guard-copies.md` carries the tree readings that
+replaced it, the retirement, and where the copies stand.
+
 ### `pr-hygiene.yml` - the migration that is half done
 
 34 copies, 34 distinct: no two boards hold the same one. That is the count that
@@ -403,7 +410,11 @@ A tool that pushes the canonical file into every board.
    of any decision on the rest. I read that as the most expensive thing standing
    and the cheapest to end.
 3. Whether `unicode-guard.yml` gets callers or the shared copy is retired. A
-   shared workflow with no caller is a maintenance cost with no return.
+   shared workflow with no caller is a maintenance cost with no return. TAKEN on
+   4 September 2026: retired. The reason and the removal are on `#28` and in
+   `docs/unicode-guard-copies.md`; this line is left standing rather than deleted
+   because the other two questions are still open and a list that loses its
+   answered entries reads as though they were never asked.
 
 ## The first tranche
 

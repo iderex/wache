@@ -382,3 +382,130 @@ reading can write about movement is one written against this table. And that a
 copy's id is unchanged says its bytes are unchanged, never that its board
 considered the migration and declined - why no board has taken the guard is
 decided on those boards and written nowhere this page can read.
+
+## The retirement on 5 September, and where the 63 copies stand
+
+`#28` was decided on 4 September 2026 in the direction this page had not been
+written for: the shared guard is retired rather than given callers. Its
+retirement done-when asks that the workflow, its calling example and its row in
+the README table go together, and that the removal say where the 63 copies stand
+instead. This section is that statement, taken before the removal rather than
+justified after it.
+
+Read 5 September 2026 against the roster at `iderex/operations` `origin/main`
+`e1903807dc380addc3de69d3c4996bf5e7b89a77`, by the tree route the 4 September
+section sets out - four GraphQL calls, nineteen boards to a query, every reply
+checked for an `errors` key before anything was counted:
+
+    jq -r 'if .errors then (.errors|length|tostring)+" errors" else "no errors key" end' batch.*.json
+    no errors key
+    no errors key
+    no errors key
+    no errors key
+
+    74 boards, 74 with a default branch, of which 1 has no .github/workflows
+    924 files, 924 blobs, 924 with text, 0 binary
+     20 references to iderex/wache/.github/workflows/pr-hygiene.yml, all on uses: lines
+      1 reference to iderex/wache/.github/workflows/unicode-guard.yml, on a uses: line
+
+    63 boards hold a local .github/workflows/unicode-guard.yml, in 34 distinct blob ids
+    28 boards share the largest of the 34
+    34 boards hold a local .github/workflows/pr-hygiene.yml
+    19 of the 19 callers keep a local unicode-guard.yml
+    17 of the 19 callers keep a local pr-hygiene.yml
+    13 v1.0.0    @9b311243c2d0d0ced7feb957a20bc178acce6a5d
+     6 v1.2.0    @113085b269d3437a3f96ff9e7060b64b0af88ab1
+
+The board without the directory is `iderex/lagetisch`, as on 31 August and 4
+September. The one `unicode-guard.yml` reference is this board's own
+`calling-examples.yml`, where it is fixture text rather than a call. So on the
+day the shared guard is deleted, no board outside this one calls it, exactly as
+on the day it was written.
+
+The file count is again the only number that moved, 923 to 924. It counts every
+workflow file on the fleet and says nothing about this guard.
+
+### The first reading that can say a copy did not move
+
+Every reading before 4 September closed by admitting it could not tell a
+standing copy from a changed one, because it kept counts and no ids. The table
+below `## The 63 copies by blob id` closed that going forward, and this is the
+first reading on the far side of it. The 63 pairs on that page, against the 63
+this sweep returned:
+
+    diff <(sort table-0904.tsv) <(sort uguard.tsv) && echo IDENTICAL
+    IDENTICAL
+
+Same 63 boards, same 63 blob ids. Not one copy moved in the day between the two
+readings, which is a much smaller claim than the shape comparisons that preceded
+it and is the first one on this page that is actually about movement.
+
+### What the removal takes and what it leaves
+
+WHAT GOES IS THE ENTRY POINT AND NOT THE CHECK. `.github/workflows/unicode-guard.yml`
+declared `on: workflow_call:` and nothing else, so the file was reachable two
+ways: by another board naming it in a `uses:` line, and by this board's
+`guards.yml` naming it in the local path form. The first has no users. The
+second is why the job moves into `guards.yml` rather than being deleted with the
+file. The job is byte-identical there - same `name: Reject Trojan Source
+Unicode`, same pattern, same twenty fixtures:
+
+    git show origin/main:.github/workflows/unicode-guard.yml | sed -n '46,154p' | sha256sum
+    7389df9e58a48dbf32db5f4a760e51eaafc0bdd3707bc35bba1e02f2436037d6 *-
+    sed -n '40,$p' .github/workflows/guards.yml | sha256sum
+    7389df9e58a48dbf32db5f4a760e51eaafc0bdd3707bc35bba1e02f2436037d6 *-
+
+So this board is not a board that stopped scanning its own tree. It is a board
+that stopped publishing, which is the thing `#28` measured as costing
+maintenance and returning nothing.
+
+NO RULESET LOSES A REQUIRED CHECK, and that is read rather than assumed, because
+the neighbouring migration on `#25` has exactly this trap on eleven boards. This
+board's own gate requires no status check at all:
+
+    gh api repos/iderex/wache/rulesets --jq '.[] | "\(.id)\t\(.name)\t\(.enforcement)"'
+    21215911	gate	active
+    gh api repos/iderex/wache/rulesets/21215911 --jq '[.rules[].type]'
+    ["deletion","non_fast_forward","pull_request","required_signatures"]
+
+and no other board's gate can be affected, because a required check is the name
+of a check run that some workflow produces, and no board outside this one runs
+this file at all - which is the `1 reference` line above.
+
+THE TAGS ARE NOT REWRITTEN, so the file stays reachable at every release that
+carried it:
+
+    for t in v1.0.0 v1.1.0 v1.2.0 v1.3.0; do
+      printf '%s\t' "$t"
+      git ls-tree "$t" -- .github/workflows/unicode-guard.yml | grep -q . &&
+        echo "holds unicode-guard.yml" || echo "no unicode-guard.yml"
+    done
+    v1.0.0	no unicode-guard.yml
+    v1.1.0	holds unicode-guard.yml
+    v1.2.0	holds unicode-guard.yml
+    v1.3.0	holds unicode-guard.yml
+
+A board pinned at `v1.1.0`, `v1.2.0` or `v1.3.0` therefore keeps running what it
+ran. What ends is the tag after `v1.3.0`, which will not carry the file, so a
+pin bumped past it would reach `startup_failure` with no job and no check run.
+No board is in that position today and the count that says so is the same `1
+reference` line.
+
+WHAT THE 63 BOARDS ARE ASKED TO DO IS NOTHING. The direction this page was
+written under - each board calls the shared guard by pinned commit and deletes
+its copy - is withdrawn by the decision. `## What a first caller has to carry`
+above is the cost of a migration that is no longer asked for, and it is left
+standing because it is also the reading of what the copies differ in, which the
+retirement does not change: 33 of the 34 distinct contents refuse the identical
+string, and `iderex/lesesaal` holds the one that does not.
+
+### What this section does not evaluate
+
+Whether `iderex/lesesaal`'s divergent copy still refuses less than the other 33.
+Its blob id is unchanged since 4 September and its content was read on 27 August;
+that its bytes have not moved is not the same statement as its behaviour having
+been re-read, and it has not been.
+
+Whether any of the 63 boards ought to keep a Trojan Source check at all is a
+question on those boards. This page reads what they hold and this repository
+writes into none of them.

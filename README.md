@@ -21,7 +21,6 @@ copy, so a fix lands in one place and reaches every caller.
 | Check | What it refuses |
 |---|---|
 | `pr-hygiene.yml` | an empty body, a placeholder title, a closing keyword inside a paragraph, a commit subject naming no issue |
-| `unicode-guard.yml` | Trojan Source: bidirectional overrides, isolates and marks, and zero-width characters in the tracked tree |
 | `dco.yml` | a commit with no Developer Certificate of Origin sign-off matching its author, an author or trailer address that is not an address, and a board pointing a contributor at a document it does not hold |
 
 Each of them runs fixtures before it judges anything. If a fixture disagrees
@@ -530,26 +529,13 @@ outcome rather than a consolation - a shared check absorbs what is common and a
 board keeps what is its own. The deletion of its copy that `#27` sequences
 applies to the answers this check does carry and not to these three.
 
-The unicode guard is called the same way, and needs its own triggers because it
-reads the tree rather than the pull request:
-
-```yaml
-on:
-  push:
-    branches: ["**"]
-  pull_request:
-    branches: ["**"]
-
-permissions:
-  contents: read
-
-jobs:
-  unicode:
-    uses: iderex/wache/.github/workflows/unicode-guard.yml@4d91113f744527d4dd6397bb09fb276ef18b09fc # v1.3.0
-```
-
-Every branch, not only `main`. A release branch is a code line too, and the
-scan is a cheap read-only grep.
+THERE IS NO CALLING EXAMPLE FOR A UNICODE GUARD HERE ANY MORE, and the absence
+is the answer to `#28` rather than an omission. This board published one and no
+board outside it ever wrote the `uses:` line, so retirement was decided on 4
+September 2026, the file is off `main` since 5 September, and every board, this
+one included, runs its own local Trojan Source check. Where the 63 copies stand, what the retirement removed and what it
+did not, and the reading behind all three are in
+[`docs/unicode-guard-copies.md`](docs/unicode-guard-copies.md).
 
 ## Calling the DCO gate
 
@@ -706,6 +692,26 @@ changed nothing in the hygiene check. `v1.2.0` changed only the hygiene check's
 concurrency group, and it is the one release a caller cannot skip. `v1.3.0`
 changes what the hygiene check REFUSES, and adds the DCO gate and three inputs
 beside it.
+
+`v1.3.0` IS ALSO THE LAST RELEASE THAT CARRIES A SHARED UNICODE GUARD. The file
+is off `main` since 5 September 2026 and the tags are not
+rewritten, so `v1.1.0`, `v1.2.0` and `v1.3.0` still hold it and a board pinned
+at any of them keeps running exactly what it ran before. What ends is that the
+tag after them will not carry the file, so a caller bumping a pin past `v1.3.0`
+would reach `startup_failure` with no job and no check run - which is the shape
+`calling-examples.yml` exists against. No board is in that position: the sweep
+recorded in `docs/unicode-guard-copies.md` finds no `uses:` line naming the
+guard on any board.
+
+THAT IS `#14` RE-READ AGAINST A RETIRED FILE, which its own issue could not do
+because the file was live when it was written. `#14` asked whether a release was
+owed for two repairs to the guard's fixtures, and it was answered by cutting
+`v1.3.0`, which carries them. No further repair to that file can be owed a
+release, because there is no file. What replaces the question is its mirror: the
+next tag is the first one that REMOVES a workflow a caller could be pinned to,
+so the release notes for it name the removal rather than leaving a bumping board
+to find it as a `startup_failure`. That is a note owed by whoever cuts the tag,
+and no tag has been cut since `v1.3.0`.
 
 Below `v1.2.0` the shared workflow's group is the bare `pr-hygiene-<PR number>`,
 and a called workflow's concurrency applies to the CALLING board's run. With
