@@ -205,3 +205,180 @@ and concurrency are equivalent to the shared caller's - only `branches:` was
 extracted. And whether the shared guard's pattern is the RIGHT set: every copy
 agreeing on it is evidence that nobody has revisited it, not evidence that it is
 complete.
+
+## The reading on 4 September, and every figure of 31 August returns
+
+Taken 4 September 2026 against the roster at `iderex/operations` `origin/main`
+`e4ce672f773cc675bfe5b88a6e7899c7bf6f66d8`, which holds 74 boards where the 31
+August reading had 73. The board added since is `erawright/steinbruch`, whose
+owner is not `iderex` - the roster record carried `Owner: iderex` earlier and
+the field now reads `erawright`, so a sweep that derived the board list once and
+kept it would have asked the wrong account:
+
+    git show e4ce672f773cc675bfe5b88a6e7899c7bf6f66d8:store/repo/steinbruch.md |
+      awk '/^Id: /{i=$2} /^Owner: /{o=$2} END{print o"/"i}'
+    erawright/steinbruch
+
+It holds one workflow file, `ci.yml`, and no reference to this board.
+
+THE SWEEP ASKS FOR TREES AND NOT FOR FILES, and that is what changed about the
+route rather than about the answer. The section above costs one `contents` call
+per board and one per file, which over the roster read below is 74 + 923 = 997
+of them. The same bytes come back from four calls, when each board's
+`.github/workflows` tree is asked for as a GraphQL object with every blob's text
+inline, nineteen boards to a query:
+
+    fragment B on Repository {
+      nameWithOwner defaultBranchRef{ name target{ oid } }
+      wf: object(expression:"HEAD:.github/workflows"){
+        ... on Tree{ entries{ name type object{ ... on Blob{ oid isBinary text } } } } }
+      dep: object(expression:"HEAD:.github/dependabot.yml"){ ... on Blob{ oid text } } }
+    query {
+      r1: repository(owner:"Flowfin", name:".github"){ ...B }
+      r2: repository(owner:"Flowfin", name:"core"){ ...B }
+      ...                                    # one alias per board, in roster order
+    }
+
+The board list is the roster derivation `docs/standardisation-survey.md`
+declares, written to `roster.txt`, and the aliases above are the first two lines
+the generator emits for the first part:
+
+    split -l 19 -d roster.txt roster.part.
+    gh api graphql -f query="$q" > batch.$i.json      # once per part
+
+The route also answers the trap the section above records, rather than guarding
+against it: a blob's `oid` is a field of a typed object, so an error body cannot
+reach the id column at all and there is nothing to validate as hexadecimal. What
+it can still do is answer `null`, which is why the count of blobs whose `text`
+came back null is printed rather than assumed, and why every reply was checked
+for an `errors` key before anything was counted:
+
+    jq -r 'if .errors then (.errors|length|tostring)+" errors" else "no errors key" end' batch.*.json
+    no errors key
+    no errors key
+    no errors key
+    no errors key
+
+    74 boards, 74 with a default branch, of which 1 has no .github/workflows
+    923 files, 923 blobs, 923 with text, 0 binary
+     20 references to iderex/wache/.github/workflows/pr-hygiene.yml, all on uses: lines
+      1 reference to iderex/wache/.github/workflows/unicode-guard.yml, on a uses: line
+
+The board without the directory is `iderex/lagetisch`, as on 31 August. The one
+`unicode-guard.yml` reference is this board's own `calling-examples.yml`, as on
+31 August. Nineteen boards outside this one call the hygiene check, every one of
+them through `shared-hygiene.yml`, and no board outside this one calls the
+guard.
+
+The file count is the one number that moved: 902 on 31 August against 923 now.
+It is a count of every workflow file on the fleet and moves whenever any board
+adds one, so it says nothing about this guard; it is recorded because a reader
+comparing the two sections will see it move and should not have to wonder.
+
+The copies and the pins, counted off the same trees:
+
+    63 boards hold a local .github/workflows/unicode-guard.yml, in 34 distinct blob ids
+    28 boards share the largest of the 34
+    34 boards hold a local .github/workflows/pr-hygiene.yml
+    19 of the 19 callers keep a local unicode-guard.yml
+    17 of the 19 callers keep a local pr-hygiene.yml
+    13 v1.0.0    @9b311243c2d0d0ced7feb957a20bc178acce6a5d
+     6 v1.2.0    @113085b269d3437a3f96ff9e7060b64b0af88ab1
+
+Every one of those is the figure the section above records. A week after the
+ruling on `#28` that every board calls the guard by pinned commit and retires
+its copy, no board has done either.
+
+## The 63 copies by blob id, so the next reading can compare
+
+No section above records those ids. Each of them counts the copies and the shape of
+their distribution, and the distinct ids themselves appear on this page only as
+a number:
+
+    git grep -c -E '^    [A-Za-z0-9._/-]+ +[0-9a-f]{40}$' -- docs/unicode-guard-copies.md
+    docs/unicode-guard-copies.md:63
+
+with the 63 that command now finds being the table below and nothing earlier. So
+a reading here could say the distribution had not changed shape and could not
+say that no single copy had moved. Sorted by id, so the 28-board cluster and
+the 3-board cluster group:
+
+    iderex/entwurf                         0032f2700c1d3d9b556d3b0685b2f1dfced2bbe1
+    iderex/plattenschrank                  16206c0862aae277f2e5db1a51c352c3e67b629b
+    iderex/drehbank                        182539816a0a8d14f9b00b9878e53b6bf6d23ff6
+    iderex/kartei                          19fae0337a761854e46db92e68cc19e7c9ffce13
+    Flowfin/lab                            1cf5abdd189e83e32939b862e5d4cb62e868d294
+    iderex/messlatte                       226d08794e9a63ad45ad5f486ff34f81c278b7eb
+    iderex/schallweg                       254e4fe44af6a06ae71ef5f9d70cd9e731107496
+    Flowfin/jellyfin-plugin-server-pairing 3a7415a4b8ddb8984147ba1ee91617a384e4004e
+    iderex/scheinbild                      3a7d1627a54cae9cc3f4c03921d002870e933008
+    iderex/reissbrett                      3fa24fdf4fbe468f8ab769ddf94cdfa4c307b020
+    iderex/wache                           46db0f6c0fa9b9efd1ccdef705479fc0e5e54607
+    iderex/swarm.asm                       48ddd71bfaad618a9e7c824a9f00225439ea8907
+    iderex/kanzlei                         496aff96484b744979625dd373168948b97a5e0a
+    iderex/relais                          496aff96484b744979625dd373168948b97a5e0a
+    iderex/sternwarte                      496aff96484b744979625dd373168948b97a5e0a
+    iderex/niedergang                      4b0fc0beded769b8157b44f44270af17dad4a514
+    Flowfin/core                           516dcf73b207284686eaefc7e6e7a959a3545bf7
+    iderex/stammtisch                      5381a941d1dab132f98d91f8c58cacfdafac0f77
+    Flowfin/jellyfin-plugin-smart-collections 544e41e627edd03d4a06259b9670750236ce353d
+    Flowfin/.github                        60083b70eb2762026be377a0baa2d540f33719f7
+    Flowfin/jellyfin-plugin-discover       60083b70eb2762026be377a0baa2d540f33719f7
+    Flowfin/jellyfin-plugin-invites        60083b70eb2762026be377a0baa2d540f33719f7
+    Flowfin/jellyfin-plugin-requests       60083b70eb2762026be377a0baa2d540f33719f7
+    Flowfin/jellyfin-plugin-share-links    60083b70eb2762026be377a0baa2d540f33719f7
+    Flowfin/jellyfin-plugin-stats          60083b70eb2762026be377a0baa2d540f33719f7
+    Flowfin/jellyfin-plugin-watch-sync     60083b70eb2762026be377a0baa2d540f33719f7
+    Flowfin/site                           60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/attrappe                        60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/bremsweg                        60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/eichstelle                      60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/einschlag                       60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/findbuch                        60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/gegenprobe                      60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/gutachten                       60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/hallraum                        60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/indexwerk                       60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/lehrkanzel                      60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/linienbuch                      60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/linienschluessel                60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/messbuch                        60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/messstube                       60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/pruefstand                      60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/raumbuch                        60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/rechenblatt                     60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/rechenstrasse                   60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/spurenarchiv                    60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/stoffbuch                       60083b70eb2762026be377a0baa2d540f33719f7
+    iderex/nachtwache                      696426bbf229e91b4113514f3689ae9bb7839fc4
+    iderex/lichttisch                      77259cf95330515e783659e8e4cb50c27debbf3b
+    iderex/ausgleich                       785eece4d13f4f305f194ea766f287b8ad4ed844
+    iderex/hoersaal                        908af47c3fd9a812e045202d58bc666eb6c294a5
+    Flowfin/hub                            91f87e50fe31610cd0efce9233ae5f468aaffbc8
+    Flowfin/jellyfin-plugin-metadata-sync  92bdb6afd936a573363c3453f47821563950dfbe
+    iderex/Easy-Compliance-Manager         99b027f7471ea43f54455c9429cd8fe56064fe3c
+    Flowfin/jellyfin-plugin-sso            9a1bb93cfc976c3c535d20eca5898deb1537608d
+    iderex/kontor                          a176522056cf7110b0c1c29ed579cef63226f4ff
+    iderex/blende                          a6744232a7a929bcb8c2601b524e2e588f5b1e5e
+    iderex/lesesaal                        a6e4d388c7f6776a4e4c001796b3b18eda7dabf0
+    iderex/beiblatt                        b2beba9e6dca30075fd323d31353f3be8f6e651a
+    iderex/schichtwerk                     b4fb7b6a8fa2f7396a082bffa7ed29476fe250b7
+    iderex/retusche                        e8782443f6702587bf8c487b04a0401481170073
+    Flowfin/jellyfin-plugin-whisper-subtitles f671a83da2a5b1de3fa915c329fd2049b4ea7255
+    Flowfin/jellyfin-plugin-watchlist      fced059bedfdbd6c9119f916afa9194c97826e39
+
+This board's own canonical file is one of the 63 and shares its id with nothing:
+
+    git ls-tree origin/main .github/workflows/unicode-guard.yml
+    100644 blob 46db0f6c0fa9b9efd1ccdef705479fc0e5e54607	.github/workflows/unicode-guard.yml
+
+So 62 copies stand on other boards, in 33 distinct contents.
+
+WHERE THIS READING STOPS. The subject is still the full
+`iderex/wache/.github/workflows/<file>.yml` form, so a call written any other
+way is outside it. The ids above are this reading's own and are compared against
+no earlier list, because no earlier list exists; the first sentence a later
+reading can write about movement is one written against this table. And that a
+copy's id is unchanged says its bytes are unchanged, never that its board
+considered the migration and declined - why no board has taken the guard is
+decided on those boards and written nowhere this page can read.
