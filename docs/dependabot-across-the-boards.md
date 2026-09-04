@@ -388,3 +388,94 @@ board has taken the template is a decision taken on those boards and written
 nowhere this page can read - the leg that would put it in front of them is still
 `#31`'s, and the sentence the section above proves about the scheduled sweep is
 unchanged.
+
+## The reading on 5 September, and the step the contract was missing
+
+Every reading above counts copies. This one reads what a board has to do to
+BECOME one, because the second done-when of `#24` asks that each board's copy
+name the place and the commit, and one copy of 74 does after eight days in which
+the template stood unchanged. What was written down was the contract - the two
+comment lines and the byte comparison over the `github-actions` block - and not
+the sequence a board executes to satisfy it. The sequence is in the README now,
+under `### If you are taking this template`, and this section is the reading
+behind its third step.
+
+The counts first, read 5 September 2026 against the roster at
+`iderex/operations` `origin/main` `e1903807dc380addc3de69d3c4996bf5e7b89a77`,
+over 74 boards, by the same four-call route the 4 September section sets out:
+
+    62 absent
+    12 present, and 12 distinct blob ids
+     1 copy carries both contract lines, and it is this board's
+
+Every one of those is the figure of 4 September. Nine days after the template
+landed, no board outside this one has taken it.
+
+### The step nobody would have looked for
+
+A board that adds `.github/dependabot.yml` starts receiving pull requests whose
+commit subjects name no issue and cannot. `subject_names_issue` in the shared
+hygiene check defaults to `true`, so on a board that calls the check and does not
+switch that rule off, every one of those pull requests is refused from the day
+the file lands. This board carries the exemption for exactly that reason, and its
+own `hygiene.yml` says so, five hundred lines from anything a copying board
+reads.
+
+Read off the same fetch as the counts above - each board's `.github/workflows`
+tree with every blob's text inline, so the `with:` block beside each call is read
+rather than sampled:
+
+    19 boards outside this one call pr-hygiene.yml
+    18 of the 19 pass subject_names_issue: false
+     1 does not: iderex/hoersaal
+
+`iderex/hoersaal` is deliberate rather than an oversight, and its own file says
+so:
+
+    # THE SUBJECT RULE IS ON HERE AND OFF ALMOST EVERYWHERE ELSE. This board's
+    # `internal/prhygiene` already refuses a subject without [#N], and all twenty of
+    # the last authored subjects carry one. It is the only board of the twenty-one
+    # that does not have to switch the rule off to call the check.
+
+It carries no `dependabot.yml` today, so nothing is red there now. It is the one
+board on which taking this template would turn a green gate red, and the step
+exists so that whoever does it there does it in one change rather than two.
+
+### The exemption is not available at the ref most boards pin
+
+This is the half that makes the step cost more than a line. `subject_exempt_authors`
+arrived in `v1.3.0` and is in no earlier release:
+
+    git show 9b311243c2d0d0ced7feb957a20bc178acce6a5d:.github/workflows/pr-hygiene.yml |
+      sed -n '/^on:/,/^permissions:/p'
+    on:
+      workflow_call:
+        inputs:
+          subject_names_issue:
+            description: 'Every non-merge commit names an issue in its subject'
+            type: boolean
+            default: true
+            required: false
+
+    permissions: {}
+
+That is `v1.0.0`, which thirteen of the nineteen callers pin; six pin `v1.2.0`,
+which declares the same single input. So no caller today can exempt an author
+without bumping to `v1.3.0` first, and that bump is itself a behaviour change -
+the line-by-line closing-keyword refusal the README's `## Versions` section
+describes. For `iderex/hoersaal` the template therefore costs three things in one
+change and not one: the file, the exemption, and a pin bump past a refusal it has
+not met.
+
+### What this section does not evaluate
+
+The thirty-four boards holding a LOCAL `pr-hygiene.yml` rather than calling this
+one. Their subject rules are their own files and were not read, so the count of
+one board above is a count over CALLERS and not over the fleet. A local
+implementation with the same rule would meet the same red gate and nothing here
+says whether any does.
+
+Why no board has taken the template in nine days. The missing step above is a
+candidate and is not evidence: it explains a cost on one board of the seventy-four
+and says nothing about the other seventy-three, whose reasons are decided on
+those boards and written nowhere this page can read.
