@@ -334,10 +334,23 @@ board tracks is the shared gate itself, the thing the other copies would be
 migrated onto, and a comparison of bytes has no way to tell a source from a copy:
 
 ```
-git rev-parse origin/main:.github/workflows/dco.yml
+git rev-parse bc3c387:.github/workflows/dco.yml
 1f6ba061c770067deb8cb5eed4557273fbe99fef
 awk -F'\t' '$1=="iderex/wache"{print $2}' dco.tsv
 1f6ba061c770067deb8cb5eed4557273fbe99fef
+```
+
+THE REF IS THE COMMIT THIS SECTION LANDED ON AND NOT `origin/main`, which is
+what it named until this line was repaired. Both ids above were read on 30
+August, so both have to be addressed there. This board's own `dco.yml` moved
+the same evening in the `#49` repair, and the command against a moving
+reference now prints a third id belonging to neither side of the equality:
+
+```
+git rev-parse origin/main:.github/workflows/dco.yml
+e3283f44e03db67e0d084aa5270a8a953861c929
+git log --format='%h %ad %s' --date=short -1 origin/main -- .github/workflows/dco.yml
+e529cb8 2026-08-30 Pin the `<id>` of the exempt address's minted form to digits [#49]
 ```
 
 That leaves two copies the reading never placed.
