@@ -118,12 +118,39 @@ hygiene / Every referenced number is an issue that exists
 unicode / Reject Trojan Source Unicode
 ```
 
-`hygiene` and `unicode` are the job ids in this board's `hygiene.yml` and
-`guards.yml`; `Deterministic PR hygiene` and `Reject Trojan Source Unicode` are
-the job names inside the workflows they call. A board following this board's own
-calling example names its job `dco`, so what would report there is
-`dco / DCO sign-off` and the required `DCO sign-off` would never be reported
-again.
+`hygiene` and `unicode` were the job ids in this board's `hygiene.yml` and
+`guards.yml` at that pull request, and `Deterministic PR hygiene` and
+`Reject Trojan Source Unicode` are the job names inside the workflows those two
+jobs called. A board following this board's own calling example names its job
+`dco`, so what would report there is `dco / DCO sign-off` and the required
+`DCO sign-off` would never be reported again.
+
+THE SECOND HALF OF THAT PASTE STOPPED SHOWING A CALL SIX HOURS AFTER THIS PAGE
+LANDED, and the prefix went with it. `#28` retired the shared unicode guard and
+kept the check local, so `guards.yml` calls nothing now and its job is `bidi`:
+
+```
+$ git log --format='%h %ad %s' --date=iso-strict --diff-filter=A -1 origin/main -- docs/dco-rulesets-and-the-delete.md
+0c64f07 2026-09-04T19:42:52+02:00 Write down what deleting a local DCO gate costs a board [#25]
+$ git log --format='%h %ad %s' --date=iso-strict --diff-filter=D -1 origin/main -- .github/workflows/unicode-guard.yml
+f1a09c6 2026-09-05T01:36:27+02:00 Retire the shared unicode guard and keep the check local [#28]
+$ git show origin/main:.github/workflows/guards.yml | sed -n '/^jobs:/,+2p'
+jobs:
+  bidi:
+    name: Reject Trojan Source Unicode
+$ gh pr checks 83 --repo iderex/wache --json name --jq '.[].name' | sort -u | grep Trojan
+Reject Trojan Source Unicode
+```
+
+An unprefixed name is what a job that calls nothing reports, so this is the rule
+above read from its other side rather than an exception to it. `hygiene` still
+calls `pr-hygiene.yml` and still reports prefixed, so one pull request on this
+board now carries both shapes at once, and the gate this page is about is the
+called one. The transcript above is left addressed at `#75`, where it was taken
+and where it still reproduces; what had drifted is the sentence reading it as a
+statement about the tree today. The two log commands ask for the commit that
+ADDED this page and the commit that DELETED that file rather than for the last
+one to touch either, so the next edit here does not move what they print.
 
 THIS IS SHARPER THAN THE SAME TRAP ON THE HYGIENE SIDE. There the shared job is
 called `Deterministic PR hygiene` and the two rulesets require `pr-hygiene` and
