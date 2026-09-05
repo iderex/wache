@@ -369,10 +369,27 @@ the 3-board cluster group:
 
 This board's own canonical file is one of the 63 and shares its id with nothing:
 
-    git ls-tree origin/main .github/workflows/unicode-guard.yml
+    git ls-tree 0486b33 .github/workflows/unicode-guard.yml
     100644 blob 46db0f6c0fa9b9efd1ccdef705479fc0e5e54607	.github/workflows/unicode-guard.yml
 
 So 62 copies stand on other boards, in 33 distinct contents.
+
+THE REF IS THE COMMIT THIS SECTION LANDED ON AND NOT `origin/main`, which is
+what it named until this line was repaired. The reading is of 4 September and
+this board does not hold the file any more, so the command against a moving
+reference prints nothing at all and exits 0 - a silence a reader cannot tell
+from a board that never carried a copy:
+
+    git ls-tree origin/main .github/workflows/unicode-guard.yml
+    echo "exit=$?"
+    exit=0
+
+The entry point was removed the next day, in the change `### What the removal
+takes and what it leaves` below records:
+
+    git log --format='%h %ad %s' --date=short --diff-filter=D \
+      -- .github/workflows/unicode-guard.yml
+    f1a09c6 2026-09-05 Retire the shared unicode guard and keep the check local [#28]
 
 WHERE THIS READING STOPS. The subject is still the full
 `iderex/wache/.github/workflows/<file>.yml` form, so a call written any other
@@ -450,10 +467,37 @@ second is why the job moves into `guards.yml` rather than being deleted with the
 file. The job is byte-identical there - same `name: Reject Trojan Source
 Unicode`, same pattern, same twenty fixtures:
 
-    git show origin/main:.github/workflows/unicode-guard.yml | sed -n '46,154p' | sha256sum
+    git show 2eef8773:.github/workflows/unicode-guard.yml | sed -n '46,154p' | sha256sum
     7389df9e58a48dbf32db5f4a760e51eaafc0bdd3707bc35bba1e02f2436037d6 *-
     sed -n '40,$p' .github/workflows/guards.yml | sha256sum
     7389df9e58a48dbf32db5f4a760e51eaafc0bdd3707bc35bba1e02f2436037d6 *-
+
+THE LEFT REF IS `f1a09c6^` AND NOT `origin/main`, and this pair is the one place
+on the page where the two cannot be the same commit. Every other section here is
+addressed at the tree it was read against; this equality is between a file the
+change DELETED and the file it moved the job into, so the change that wrote the
+pair is the change that took its left-hand side away. It named `origin/main`,
+and the pipeline as it was pasted does not stop there: `git show` fails, `sha256sum`
+reads the empty stream it is handed, and a hash that belongs to no file is printed
+under the equality:
+
+    git show origin/main:.github/workflows/unicode-guard.yml | sed -n '46,154p' | sha256sum
+    fatal: path '.github/workflows/unicode-guard.yml' does not exist in 'origin/main'
+    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 *-
+
+`e3b0c442...` is the hash of no bytes at all. So a reader who kept stdout and let
+the fatal go to stderr saw the two sides disagree, with nothing on the page saying
+the left one had ceased to exist.
+
+`2eef8773` is that change's parent, which is reachable from `main` and is the
+last commit holding the file:
+
+    git merge-base --is-ancestor 2eef8773 origin/main && echo reachable
+    reachable
+
+The right-hand side stays at the working tree, because `guards.yml` is where the
+job runs from now and today's bytes are what a reader wants on that side.
+Neither value moved: the hash is the one this section printed when it landed.
 
 So this board is not a board that stopped scanning its own tree. It is a board
 that stopped publishing, which is the thing `#28` measured as costing
