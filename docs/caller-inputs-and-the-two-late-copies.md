@@ -107,7 +107,7 @@ With `subject_names_issue` false and `message_is_ascii` unset, the commit range
 is never walked. The guard is one line:
 
 ```
-git show origin/main:.github/workflows/pr-hygiene.yml | sed -n '395p'
+git show origin/main:.github/workflows/pr-hygiene.yml | grep '|| \[ "$ASCII_RULE" = "true" \]'
           if [ "$subject_rule" = "true" ] || [ "$ASCII_RULE" = "true" ]; then
 ```
 
@@ -132,7 +132,8 @@ I extracted the body judgement out of the file and ran it rather than reading it
 because "refuses nothing" is the claim that is easiest to get wrong by reading:
 
 ```
-sed -n '238,272p' .github/workflows/pr-hygiene.yml | sed 's/^          //' > refusals.sh
+awk '/^          refusals\(\) \{/,/^          \}/' .github/workflows/pr-hygiene.yml |
+  sed 's/^          //' > refusals.sh
 refusals "Read what the boards hold [#24]" "I changed the reader so it stops on the first failure."
 ```
 

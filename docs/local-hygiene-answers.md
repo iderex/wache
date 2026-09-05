@@ -265,7 +265,7 @@ carries the job id; `iderex/stammtisch`'s job declares
 THE SHARED CHECK PRODUCES NEITHER NAME, and the near miss is the dangerous part:
 
 ```
-git show origin/main:.github/workflows/pr-hygiene.yml | sed -n '142p'
+git show origin/main:.github/workflows/pr-hygiene.yml | grep 'name: Deterministic PR hygiene'
     name: Deterministic PR hygiene
 ```
 

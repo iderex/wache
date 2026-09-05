@@ -278,7 +278,7 @@ THIS CHECK PRODUCES NEITHER OF THOSE NAMES, and the near miss is the part to
 read slowly:
 
 ```
-$ git show origin/main:.github/workflows/pr-hygiene.yml | sed -n '142p'
+$ git show origin/main:.github/workflows/pr-hygiene.yml | grep 'name: Deterministic PR hygiene'
     name: Deterministic PR hygiene
 ```
 
