@@ -115,8 +115,10 @@ is the one nobody would think to look for.
    is the one above: a rule over the commit SUBJECT refuses every Dependabot
    pull request; a rule over the BODY passes 65 times in 77 on numbers quoted
    out of an upstream release note, which is worse than a refusal because the
-   green means nothing; and a rule that READS the issues a body names goes red
-   on a 404 for a number that was never an issue on your board. That third one
+   green means nothing; a rule that READS the issues a body names goes red on a
+   404 for a number that was never an issue on your board; and a rule keyed to
+   the issues GitHub RESOLVED as closed refuses every time, because an update
+   proposal closes none. That third one
    is red on a live pull request today on a board that exempts `dependabot[bot]`
    by name, because the exemption sits on the rule that COLLECTS the references
    and not on the rule that consumes them. The reading, the boards and the
@@ -137,9 +139,11 @@ is the one nobody would think to look for.
 WHAT THIS SEQUENCE DOES NOT COVER. Whether an updater is wanted on your board at
 all, which is your board's decision and not a step here. A board running its OWN
 pull-request hygiene was the other half of this paragraph until 6 September and
-is covered now, with two bounds that stay: six of the thirty-three local gates
-decide in source that reading did not fetch, and a gate under a filename other
-than `pr-hygiene.yml` is reached by the content key or by neither.
+is covered now: all thirty-three local gates are read, including the six that
+decide in Go, C# or a script of their own. One bound stays, and it is the
+population rather than the reading - a gate under a filename other than
+`pr-hygiene.yml` is reached by the content key or by neither, and no fleet total
+is claimed.
 
 `docs/standardisation-survey.md` is the reading behind what comes here next: what
 the boards hold more than once, how far the copies have drifted, and the shapes
