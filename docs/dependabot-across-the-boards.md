@@ -645,3 +645,249 @@ gap the section above leaves open over the boards with a local implementation.
 Why the twelve have not moved, and why the thirteenth wrote its own file two
 days after the roster gained it. Both are decided on those boards and written
 nowhere this page can read, unchanged from the section above.
+
+## The second reading on 6 September, and the red gate is live on one board
+
+The section above is the first reading of the day and this is the second. What
+it reads is not the copies. It is the gap the 5 September section declares and
+the README repeats: the boards that run their OWN pull-request hygiene rather
+than calling this one were never read, so the count of one board at risk from
+step 3 was a count over CALLERS. That gap is closed here, and the answer is
+larger and differently shaped than the sentence it replaces.
+
+Against the roster at `iderex/operations` `origin/main`
+`23205d6cd8d3f59d9d26f3b7bcf67e86e8547c96`, 74 boards, derived with the
+`boards()` function `docs/standardisation-survey.md` declares. The fetch is the
+four-call route the sections above use, widened back to carry the workflows tree
+with every blob's text inline beside the `dependabot.yml`, because the rules
+being read here live in those blobs:
+
+    fragment B on Repository {
+      nameWithOwner defaultBranchRef{ name target{ oid } }
+      wf: object(expression:"HEAD:.github/workflows"){ ... on Tree { entries { name object { ... on Blob { oid text } } } } }
+      dep: object(expression:"HEAD:.github/dependabot.yml"){ ... on Blob { oid text } } }
+
+    jq -r 'if .errors then (.errors|length|tostring)+" errors" else "no errors key" end' batch.*.json
+    no errors key
+    no errors key
+    no errors key
+    no errors key
+
+    74 boards, 74 with a default branch, 73 with a .github/workflows tree
+    61 absent
+    13 present, and 13 distinct blob ids
+
+Joined against the table the section above landed, by the same route it used:
+
+    SAME on all thirteen
+    comm -23: nothing only in the earlier list
+    comm -13: nothing only in this one
+
+and the contract lines read off all thirteen still return one copy naming an
+origin and a commit, which is this board's. Both are unmoved from this morning
+and are here so the reading below rests on a state that was read rather than
+assumed.
+
+### Dependabot cannot satisfy an issue-reference rule, and its body can
+
+Everything below turns on what text a Dependabot pull request actually carries,
+so that is measured first rather than supposed. Over every Dependabot pull
+request on the `iderex` boards:
+
+    gh api -X GET search/issues -f q='is:pr author:app/dependabot org:iderex' \
+      -f per_page=100 --jq '[.items[].title] | length'
+    77
+    gh api -X GET search/issues -f q='is:pr author:app/dependabot org:iderex' \
+      -f per_page=100 --jq '[.items[].title | select(test("(^|[^A-Za-z0-9_])#[0-9]+"))] | length'
+    0
+
+None of the 77 titles carries an issue reference, and the commit subjects are
+the same shape, read off four of them rather than inferred from the titles:
+
+    gh api "repos/$r/pulls/$n/commits" --jq '.[] | .commit.message | split("\n")[0]'
+    iderex/swarm.asm #322                Bump xunit.v3 from 3.2.2 to 4.0.0
+    iderex/retusche #163                 Bump the actions group with 3 updates
+    iderex/Easy-Compliance-Manager #1139 Bump the cargo-minor-and-patch group with 2 updates
+    iderex/lichttisch #203               actions: bump the actions group across 1 directory with 5 updates
+
+THE BODY IS THE OPPOSITE CASE AND IT IS THE ONE NOBODY WOULD PREDICT. The same
+77, asked whether the body carries something a hash-and-digits test matches:
+
+    gh api -X GET search/issues -f q='is:pr author:app/dependabot org:iderex' \
+      -f per_page=100 --jq '[.items[] | (.body // "") | test("(^|[^A-Za-z0-9_])#[0-9]+")]
+            | [(map(select(.))|length), length] | @tsv'
+    65	77
+
+Sixty-five of seventy-seven. Those numbers are the upstream project's issue
+numbers, quoted into the body out of a release note, and nothing in the text
+separates them from a reference to an issue on the board being judged. So a rule
+keyed to the subject refuses a Dependabot pull request every time, and a rule
+keyed to the body passes it most of the time, for a reason that is not the rule's
+reason.
+
+### The population, read with two keys because neither one is complete
+
+By filename, over the same fetch:
+
+    34 files named .github/workflows/pr-hygiene.yml
+     1 of them is this board's shared definition
+    33 local implementations on other boards
+
+Thirty-four is what the README's closing paragraph says, and the difference is
+whether this board's own file is counted rather than a movement in the
+population.
+
+THAT KEY HAS A BOUND THIS TREE ALREADY RECORDED. `docs/local-hygiene-answers.md`
+says of `iderex/pruefstand` that a 404 on `.github/workflows/pr-hygiene.yml`
+concluded it held no local copy, and that its gate is at
+`.github/workflows/hygiene.yml` - so a filename is not what a gate is. Read by
+CONTENT instead, meaning any workflow blob on any board whose text carries an
+issue-reference rule, the population is 30 boards over 36 files, and five of them
+are boards the filename key does not reach:
+
+    Flowfin/jellyfin-plugin-invites    Flowfin/jellyfin-plugin-requests
+    Flowfin/jellyfin-plugin-watchlist  Flowfin/jellyfin-plugin-watch-sync
+    iderex/reissbrett
+
+The content key misses boards the filename key finds, for the opposite reason:
+their workflow gathers inputs and the deciding is in a script or a compiled
+program elsewhere in that tree. NEITHER COUNT IS THE FLEET TOTAL and this page
+claims no total. What follows is read over the 33 the filename key returns,
+because those are the ones whose judging text this reading fetched.
+
+### What the 33 do about a bot
+
+Nine of the 33 decide in a file outside `.github/workflows`, and those files were
+fetched by path and read beside the workflow that names them, so the corpus per
+board is the workflow plus its script where one exists.
+
+    13 exempt a bot author from the issue-reference rule
+    12 refuse a pull request naming no issue, keyed to the BODY or to the whole
+       commit MESSAGE, with no bot exemption anywhere in the corpus
+     2 refuse keyed to the commit SUBJECT, with no bot exemption
+     6 decide in source this reading did not fetch - Go, C#, or a tool in the
+       board's own tree - and are reported unread rather than clean
+
+The two keyed to the subject are `iderex/messlatte`, whose leg walks
+`git log --no-merges --format=%s` and greps each subject for a hash and digits,
+and `iderex/spurenarchiv`, whose comment says it plainly:
+
+    # The subject is the first line and nothing else. A reference in the
+    # body is not what this rule is about.
+
+`iderex/spurenarchiv` waives the rule for an outside contribution, which it
+defines as a fork whose author has no write access. Dependabot pushes a branch
+inside the repository, so that waiver does not reach it.
+
+Two of the six unread declare a subject rule in prose without this reading having
+executed it: `iderex/kanzlei`'s workflow says the deciding is in
+`internal/prhygiene` and that the fail tier is that the body names an issue and
+every commit subject names one, and `iderex/hoersaal` is the board the 5
+September section already quotes for the same shape. Reading either one means
+reading that board's Go, which this page did not do.
+
+### The red gate is live today, and it came through the body
+
+Six open Dependabot pull requests were examined over the five boards that carry
+both a `dependabot.yml` and a pull-request hygiene gate. One is red:
+
+    sha=$(gh api repos/$r/pulls/$n --jq '.head.sha')
+    gh api "repos/$r/commits/$sha/check-runs" --jq '.check_runs[] | [.name, .conclusion] | @tsv'
+
+    Flowfin/core #256                       Deterministic PR-hygiene checks = failure
+    Flowfin/site #179                       Deterministic PR-hygiene checks = success
+    Flowfin/jellyfin-plugin-invites #405    Deterministic pull-request hygiene = success
+    Flowfin/jellyfin-plugin-watchlist #275  Deterministic PR-hygiene checks = success
+    Flowfin/lab #238, #237                  no hygiene check on the head at all
+
+THE BOARD THAT IS RED EXEMPTS DEPENDABOT BY NAME, and that is the finding rather
+than an irony. `Flowfin/core` holds an explicit login list, and its own comment
+says what the exemption covers:
+
+    # It exempts that author from `names-an-issue` and from nothing else.
+
+The exemption is never reached. Its guard requires the reference set to be empty,
+and that set is what the body yields, so a body quoting twenty-five upstream
+numbers is not empty and the rule reports agreement instead:
+
+    -- names-an-issue
+    ok    names: 994 995 996 1004 1005 1007 1013 1014 1016 1017 3956 3995 4007
+          4019 4023 4037 4051 4061 4070 4080 4081 4085 4098 4102 4106
+
+Those numbers then flow into the next rule, which reads each one as an issue on
+the board being judged:
+
+    -- changed-paths-inside-scope
+    gh: Not Found (HTTP 404)
+    ##[error]Could not read issue #994. The scope comparison cannot be made, and
+    this run will not pass in place of it.
+
+That refusal is `Flowfin/core`'s gate working as written: it will not pass
+vacuously when it cannot read what it needs. Its own code already anticipates the
+case one verdict over, printing that a body quoting another repository's release
+notes carries bare references to issues over there, and this run took the
+unreadable branch rather than the absent one. What produced the red is the
+combination and not a defect in either half: an identity exemption placed on one
+rule, and a second rule downstream consuming what the first rule harvested.
+
+### The shared check does not carry that shape, and the reason is one word
+
+This board turns the same two things on that `Flowfin/core` runs -
+`body_names_issue: true` and `resolve_referenced_numbers: true` - so the
+comparison is worth making rather than assuming, and it comes out the other way.
+The body rule takes its exemption before it reads anything:
+
+    if is_exempt_login "${PR_AUTHOR:-}" "${BODY_EXEMPT_AUTHORS:-}"; then
+      echo "skip  the body rule (automation: ${PR_AUTHOR:-none})"
+
+and the job that resolves numbers reads the COMMIT SUBJECT rather than the body:
+
+    reference_targets() {
+      local subject=$1 repo=$2 n
+      printf '%s' "$subject" | grep -oE '\[#[0-9]+\]' | tr -d '[]#' |
+      ...
+
+A Dependabot subject carries neither `[#N]` nor `owner/repo#N`, as the four
+subjects above show, so the target set is empty and there is nothing to resolve
+against a tracker. The harvest that reddens `Flowfin/core` needs a resolver fed
+from the BODY, and this one is not.
+
+THAT IS A READING OF THIS FILE AND NOT A GUARANTEE ABOUT THE FLEET. A caller
+turning `resolve_referenced_numbers` on gets the subject-fed version of it
+whatever its board's own gate does beside it, and the board's own gate is the
+thing this section is about.
+
+### What this does to step 3 of the README sequence
+
+The step says to check whether your board calls `pr-hygiene.yml` without passing
+`subject_names_issue: false`. That is one route of at least three, and it is not
+the one that is red today:
+
+- a rule over the commit SUBJECT refuses every Dependabot pull request, whether
+  it is the shared check's `subject_names_issue` or a board's own leg;
+- a rule over the BODY passes 65 times in 77 on numbers that belong to another
+  project, which is worse than a refusal because it is intermittent and its green
+  means nothing;
+- a rule that READS the issues a body names meets a 404 for a number that was
+  never an issue on that board, and a gate that refuses rather than passing
+  vacuously goes red for a reason nobody wrote a rule about.
+
+So the check to run before taking this template is over your own gate's issue
+rules and not only over the `with:` block of a shared call. An exemption keyed to
+the author has to cover every rule downstream of the one that collects the
+references, or it covers nothing.
+
+### What this section does not evaluate
+
+Whether the 12 body-keyed boards would actually go red. Each one's verdict
+depends on the upstream release note in the pull request in front of it, which is
+text no reading here can hold, and the 65 in 77 above is a rate over a different
+population than any one board's next update.
+
+The 6 boards whose rules are in their own source, and the boards the filename key
+does not reach at all. Both are named above rather than folded into a count, and
+neither is claimed as clean.
+
+Whether the red at `Flowfin/core` is new. The check-run on that head is the state
+today; no earlier Dependabot pull request on that board was walked, so how long
+this has stood is not read here.

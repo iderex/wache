@@ -100,14 +100,28 @@ is the one nobody would think to look for.
    outside this one call the check, eighteen of them pass
    `subject_names_issue: false`, and one does not: `iderex/hoersaal`, pinned at
    `v1.0.0`, whose own comment says the subject rule is deliberately on there.
-   That is the single board this step is about today, and the count moves
-   whenever a board changes its call, so re-run it rather than trusting the
-   number:
+   That is the single board this step is about AMONG THE CALLERS, and the count
+   moves whenever a board changes its call, so re-run it rather than trusting
+   the number:
 
    ```sh
    gh api "repos/<board>/contents/.github/workflows/shared-hygiene.yml" \
      --jq '.content' | base64 -d | grep -A5 'uses:.*pr-hygiene'
    ```
+
+   **IF YOUR BOARD JUDGES PULL REQUESTS WITH ITS OWN GATE, THE CALL IS THE WRONG
+   THING TO READ AND THE SUBJECT IS THE WRONG RULE.** Read your gate's issue
+   rules instead. Three routes were measured on 6 September and only the first
+   is the one above: a rule over the commit SUBJECT refuses every Dependabot
+   pull request; a rule over the BODY passes 65 times in 77 on numbers quoted
+   out of an upstream release note, which is worse than a refusal because the
+   green means nothing; and a rule that READS the issues a body names goes red
+   on a 404 for a number that was never an issue on your board. That third one
+   is red on a live pull request today on a board that exempts `dependabot[bot]`
+   by name, because the exemption sits on the rule that COLLECTS the references
+   and not on the rule that consumes them. The reading, the boards and the
+   commands are in
+   [`docs/dependabot-across-the-boards.md`](docs/dependabot-across-the-boards.md).
 
 4. **Add your board's own ecosystems BELOW the `github-actions` block.**
    `dependabot.yml` is language-shaped: every board that carries one declares
@@ -120,11 +134,12 @@ is the one nobody would think to look for.
    and how to run it by hand is
    [`docs/dependabot-across-the-boards.md`](docs/dependabot-across-the-boards.md).
 
-WHAT THIS SEQUENCE DOES NOT COVER. A board running its OWN pull-request hygiene
-implementation rather than calling this one: thirty-four boards hold a local
-`pr-hygiene.yml`, their subject rules were not read, and step 3 says nothing
-about them. And whether an updater is wanted on your board at all, which is your
-board's decision and not a step here.
+WHAT THIS SEQUENCE DOES NOT COVER. Whether an updater is wanted on your board at
+all, which is your board's decision and not a step here. A board running its OWN
+pull-request hygiene was the other half of this paragraph until 6 September and
+is covered now, with two bounds that stay: six of the thirty-three local gates
+decide in source that reading did not fetch, and a gate under a filename other
+than `pr-hygiene.yml` is reached by the content key or by neither.
 
 `docs/standardisation-survey.md` is the reading behind what comes here next: what
 the boards hold more than once, how far the copies have drifted, and the shapes
