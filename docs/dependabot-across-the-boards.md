@@ -479,3 +479,169 @@ Why no board has taken the template in nine days. The missing step above is a
 candidate and is not evidence: it explains a cost on one board of the seventy-four
 and says nothing about the other seventy-three, whose reasons are decided on
 those boards and written nowhere this page can read.
+
+## The reading on 6 September, and the first backward comparison of the copies
+
+Every section above counts the copies. This one compares them to the list before
+it, which is a thing no earlier section could do: the reading of 31 August kept
+no ids, so 4 September had nothing to reach back to and said so. That section
+kept twelve, and this is the run in which the question it left open is answered
+rather than restated.
+
+Against the roster at `iderex/operations` `origin/main`
+`77d2c1f5aada75b1a40796fb3d6afeca630388cc`, 74 boards, derived with the
+`boards()` function `docs/standardisation-survey.md` declares rather than with a
+list kept anywhere.
+
+THE QUERY IS NARROWER THAN THE ONE THE SECTION ABOVE SHARES, and the difference
+is worth naming because that section's argument is that this page and
+`docs/unicode-guard-copies.md` are two readings of ONE fetch. This reading needs
+no workflow bytes, so it asks each board only for its `.github/dependabot.yml`
+as a typed blob with its `oid` and `text`, nineteen boards to a query, four
+queries:
+
+    fragment B on Repository {
+      nameWithOwner defaultBranchRef{ name target{ oid } }
+      dep: object(expression:"HEAD:.github/dependabot.yml"){ ... on Blob{ oid text } } }
+
+So it is one fetch with the other page's half dropped, not a second route. The
+trap the sections above validate against is closed the same way it is there - an
+`oid` is a field of a typed blob and an error body has no way into that column -
+and every reply was checked for an `errors` key before anything was counted:
+
+    jq -r 'if .errors then (.errors|length|tostring)+" errors" else "no errors key" end' batch.*.json
+    no errors key
+    no errors key
+    no errors key
+    no errors key
+
+    74 boards, 74 with a default branch
+    61 absent
+    13 present, 13 distinct blob ids, and 0 whose text came back null
+
+    erawright/steinbruch                   4c1f97011aba8487d4989b27ede9ea3907361985
+    Flowfin/core                           8d318eacc2fb0a6967779f5410e6e05e97a97ba3
+    Flowfin/jellyfin-plugin-invites        549a1abd7b4daa980f3c4e7e622bca77f5afd5a7
+    Flowfin/jellyfin-plugin-sso            c50ea5247148f0a3011bb2f87875c7e8edad13c9
+    Flowfin/jellyfin-plugin-watchlist      a0f8498b8a4c6f5fc0ae1f4ecbae2047e7666d8b
+    Flowfin/lab                            87affb3ca20e7d373c049faf93682dac660bf27d
+    Flowfin/site                           f34392a1aea9a5685b9ced0cc52db94686020cc2
+    iderex/Easy-Compliance-Manager         46a0f5e6baf5e667b0f314ca5e9ed67708c341a3
+    iderex/cudec                           880e0e3d6cb4a6e0bf3016f756bb6ba0cf512ba9
+    iderex/lichttisch                      92f0ad415f82f6233cc6c24532cae5ffa10c915b
+    iderex/retusche                        f9a5231933406b319fd657e8b1eabe6443f39437
+    iderex/swarm.asm                       ad0be0bc08b68146d3e1d4bd7385ed5effee0c5c
+    iderex/wache                           7b0444a82e1268a4a0dd1fc865ef0fed6c98f845
+
+### The twelve of 4 September have not moved
+
+Joined mechanically against the table the section above landed, so the answer
+comes from the ids rather than from reading two lists side by side. The
+left-hand file is that table extracted out of this page at `origin/main`:
+
+    git show origin/main:docs/dependabot-across-the-boards.md |
+      grep -E '^    [A-Za-z0-9._/-]+ +[0-9a-f]{40}$' | awk '{print $1"\t"$2}' | sort > sep04.tsv
+    jq -r '.data | to_entries[] | .value | select(.dep != null)
+           | [.nameWithOwner, .dep.oid] | @tsv' batch.*.json | sort > sep06.tsv
+    join -t$'\t' sep04.tsv sep06.tsv -o 0,1.2,2.2 |
+      awk -F'\t' '{print ($2==$3 ? "SAME  " : "MOVED ") $1}'
+
+    SAME on all twelve
+    comm -23: nothing only in the 4 September list
+    comm -13: erawright/steinbruch, only in this one
+
+So no copy changed content between 4 and 6 September, this board's included, and
+the eleven that carry no contract line are byte-for-byte what they were. That is
+a reading of a two-day window and not a statement about how stable the
+population is; what it retires is the sentence the section above closes with,
+which is that the comparison could not be made at all.
+
+### The thirteenth board, and it took the file rather than the template
+
+`erawright/steinbruch` is the board the section above names as having joined the
+roster since 31 August and as carrying no `dependabot.yml`. It carries one now,
+so the file arrived there inside the two days between these two readings. The
+contract lines were read off all thirteen rather than off the new one:
+
+    jq -r '.data | to_entries[] | .value | select(.dep != null)
+           | [ .nameWithOwner,
+               (.dep.text | split("\n")
+                | map(select(test("^#   (origin|taken-at): ")))
+                | map(sub("^#   [a-z-]+: +";""))
+                | join(" | ")) ] | @tsv' batch.*.json
+
+    erawright/steinbruch   (neither line)
+    the other eleven       (neither line)
+    iderex/wache           iderex/wache templates/dependabot.yml | a637780d22d9472988fc5c330643de63b4e5e68a
+
+One copy of thirteen names an origin and a commit, and it is this board's. The
+third state this page describes - not up to date, not drifted, unjudged - now
+covers twelve boards where it covered eleven.
+
+### The drift test against it, canonical side supplied by hand
+
+There is no `taken-at` to resolve, so the canonical side is
+`templates/dependabot.yml` at `origin/main`, as in every earlier hand run:
+
+    git show origin/main:templates/dependabot.yml | block | diff - <(block < steinbruch.yml)
+    2c2
+    <     directory: "/"
+    ---
+    >     directory: /
+    5c5,7
+    <     open-pull-requests-limit: 5
+    ---
+    >       day: monday
+    >       time: "04:00"
+    >       timezone: Europe/Berlin
+    10,11c12
+    <         patterns:
+    <           - "*"
+    ---
+    >         patterns: [ "*" ]
+
+    9 differing line(s)  cargo, github-actions
+
+Eleven boards have been measured this way before - nine in the drift-test
+section and two on 31 August - with figures from 5 to 19, and nine sits inside
+that range rather than at either end.
+
+WHAT THE NINE DECOMPOSE INTO IS THE TEST'S OWN FLOOR AND NOT A NEAR-TAKE. Three
+of them are the extra schedule detail the drift-test section already names as
+counted:
+
+    block < steinbruch.yml | grep -cE '^      (day|time|timezone):'
+    3
+
+Five more are quoting and sequence style: `directory: /` against `directory:
+"/"`, and a flow sequence `patterns: [ "*" ]` against the canonical block
+sequence, which is two lines on one side and one on the other. That leaves one
+line in which the two blocks ask for different things - the copy declares no
+`open-pull-requests-limit`, which the canonical block sets to 5.
+
+THAT DECOMPOSITION IS A JUDGEMENT AND THE NINE IS THE MEASUREMENT. Reading those
+five lines as saying the same thing is a reading of YAML, and the drift-test
+section says plainly that a comparison judging meaning would need a parser this
+board does not carry. None is added here for a reading. The test reports nine, a
+board acting on it would have to close all nine, and the paragraph above is what
+a person sees in the diff rather than what any route here decides.
+
+### What this section does not evaluate
+
+Whether `erawright/steinbruch` meets the red gate step 3 of the README's
+sequence warns about. It calls none of this board's checks:
+
+    gh api graphql -f query='query { repository(owner:"erawright", name:"steinbruch"){
+      object(expression:"HEAD:.github/workflows"){ ... on Tree { entries { name
+      object { ... on Blob { text } } } } } } }'
+
+    ci.yml  codeql.yml  coverage.yml  zizmor.yml
+    no line in any of the four naming iderex/wache
+
+so the step costs it nothing today. Whether those four files carry a
+pull-request subject rule of their own is not read here, and that is the same
+gap the section above leaves open over the boards with a local implementation.
+
+Why the twelve have not moved, and why the thirteenth wrote its own file two
+days after the roster gained it. Both are decided on those boards and written
+nowhere this page can read, unchanged from the section above.
