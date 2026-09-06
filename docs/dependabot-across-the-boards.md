@@ -768,6 +768,12 @@ board is the workflow plus its script where one exists.
      6 decide in source this reading did not fetch - Go, C#, or a tool in the
        board's own tree - and are reported unread rather than clean
 
+THE SIX WERE FETCHED AND READ THE SAME DAY, AND THE FOUR NUMBERS ABOVE MOVE.
+They are kept as they stood because the section below is the correction and
+because two of the six landed in the column nobody would have guessed. Read the
+tally at `### The six unread gates, read` before quoting any figure from this
+block.
+
 The two keyed to the subject are `iderex/messlatte`, whose leg walks
 `git log --no-merges --format=%s` and greps each subject for a hash and digits,
 and `iderex/spurenarchiv`, whose comment says it plainly:
@@ -830,6 +836,84 @@ unreadable branch rather than the absent one. What produced the red is the
 combination and not a defect in either half: an identity exemption placed on one
 rule, and a second rule downstream consuming what the first rule harvested.
 
+### The six unread gates, read
+
+The block above reports six boards as deciding in source it did not fetch. The
+source was fetched: one GraphQL call for four directory trees and two files, at
+`checks/pr-hygiene`, `scripts/check-pr-hygiene.sh`, `test/prhygiene`,
+`internal/prhygiene` twice, and `internal/hygiene`. None of the six is unread
+now, and the tally over the 33 becomes
+
+    15 exempt a bot author
+    13 refuse keyed to the BODY or the whole commit MESSAGE, no exemption
+     4 refuse keyed to the commit SUBJECT, no exemption
+     1 refuses keyed to the CLOSING REFERENCES GitHub resolved, no exemption
+     0 unread
+
+TWO OF THE SIX EXEMPT A BOT AND ONE OF THOSE TWO IS `iderex/hoersaal`, which is
+the board the 5 September section names as the one where taking this template
+turns a green gate red. Its own gate skips a bot before it reads anything:
+
+    if in.AuthorIsBot {
+      v.Skipped = true
+      v.SkipReason = "the author is a bot, and a bot cannot know the convention these rules hold a person to"
+      return v
+    }
+
+THAT DOES NOT RETIRE THE 5 SEPTEMBER FINDING AND IT SHARPENS IT. What that
+section is about is the SHARED check `iderex/hoersaal` calls with
+`subject_names_issue` on and no exempt author, at a pin below the release that
+carries `subject_exempt_authors`. That call is unchanged by anything here. What
+moves is only the reason a reader would give: the board's own Go gate is not
+where the red would come from, so a repair aimed at `internal/prhygiene` would
+change nothing.
+
+`Flowfin/site` is the other, and it is the one board carrying both a
+`dependabot.yml` and a local gate, so its live pull request is the check on this
+whole classification. Its rule is keyed to the subject and would refuse - and its
+bot list is read from the author's address rather than a login shape:
+
+    var botAuthors = []string{
+      "dependabot[bot]@users.noreply.github.com",
+      "github-actions[bot]@users.noreply.github.com",
+
+which is why `Flowfin/site` #179 is green in the table above. The reading and the
+run agree, which is the only place in this page where they could be compared.
+
+THE OTHER FOUR CARRY NO BOT HANDLING OF ANY KIND, checked as a word rather than
+as a substring, because `both` matches a careless grep for `bot` and three of
+these files are full of it:
+
+    grep -n -i -E 'bot\]|isbot|is_bot|"Bot"|dependabot|github-actions' <the four>
+    exit=1
+
+- `iderex/kanzlei` refuses on the BODY and on every commit SUBJECT, in
+  `Judge()`, with no author read at any point.
+- `Flowfin/jellyfin-plugin-whisper-subtitles` refuses on the commit subjects, and
+  its deciding tier is skipped for a FORK head and for nothing else. Dependabot
+  pushes a branch inside the repository.
+- `iderex/lehrkanzel` gathers `#<number>` out of the commit messages and the body
+  together, which is the harvesting shape rather than the subject one.
+- `iderex/relais` is the fourth column and the reason it exists. Its rule is
+  `body-names-a-closing-issue`, and it reads what GitHub RESOLVED as closed by
+  the pull request rather than matching text:
+
+      "This is read from the resolved references rather than by matching text in
+      the body, which is the difference the pull request template already
+      explains: a closing keyword inside a code block reads as a link to a
+      person and does nothing on merge"
+
+  A Dependabot pull request resolves no issue on that board, so this refuses
+  every time - and it is the one shape in this page that an upstream release note
+  cannot accidentally satisfy. The rule was written against a different failure
+  and it is stricter here for that reason rather than by design.
+
+SO THE SUBJECT COLUMN DOUBLED AND A FOURTH COLUMN APPEARED. Four boards refuse a
+Dependabot pull request every time on the subject, one refuses every time on the
+resolved links, and thirteen decide on text an upstream project wrote. What did
+not change is the direction: no board outside this one carries the contract, and
+none of these five would be found by reading a `with:` block.
+
 ### The shared check does not carry that shape, and the reason is one word
 
 This board turns the same two things on that `Flowfin/core` runs -
@@ -884,9 +968,10 @@ depends on the upstream release note in the pull request in front of it, which i
 text no reading here can hold, and the 65 in 77 above is a rate over a different
 population than any one board's next update.
 
-The 6 boards whose rules are in their own source, and the boards the filename key
-does not reach at all. Both are named above rather than folded into a count, and
-neither is claimed as clean.
+The boards the filename key does not reach at all. The six whose rules are in
+their own source were the other half of this sentence and are read above; the
+five the content key finds and the filename key misses are named rather than
+judged, and nothing here claims a fleet total.
 
 Whether the red at `Flowfin/core` is new. The check-run on that head is the state
 today; no earlier Dependabot pull request on that board was walked, so how long
