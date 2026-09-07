@@ -285,13 +285,33 @@ today:
 
 ```
 $ gh api "repos/$BOARD/rulesets" --jq '.[].id' | while read -r id; do
-    gh api "repos/$BOARD/rulesets/$id" --jq '[.rules[]? |
+    gh api "repos/$BOARD/rulesets/$id" --jq '"\(.name)\t\(.enforcement)\t\([.conditions.ref_name.include[]?]|join(","))\t\([.rules[]? |
       select(.type=="required_status_checks") |
-      .parameters.required_status_checks[]?.context] | join(",")'
+      .parameters.required_status_checks[]?.context] | join("|"))"'
   done
-iderex/hoersaal     ... ,pr-hygiene, ...
-iderex/stammtisch   ... ,Deterministic PR-hygiene checks, ...
 ```
+
+`iderex/hoersaal` requires `pr-hygiene` and `iderex/stammtisch` requires
+`Deterministic PR-hygiene checks`, each produced by that board's own copy and by
+nothing else. Run on the first of the two the command prints:
+
+```
+gate     active   ~DEFAULT_BRANCH   Audit workflows (zizmor)|DCO sign-off|Reject Trojan Source Unicode|analysis|build|code-scanning|dependency-review|doclint|lint|pr-hygiene|sbom|unit
+```
+
+READ THE ENFORCEMENT AND THE BRANCHES BESIDE THE CONTEXTS, which is why the
+command prints four fields rather than one. A required context strands nothing
+where its ruleset is in `evaluate` mode or targets branches your pull requests
+never go to, and the contexts on their own cannot tell you which of those you
+have. Both boards above are `active` and both rules reach the default branch, so
+on this set the two extra fields changed no answer - they are in the command
+because what you are reading is your board and not this set.
+
+MATCH EVERY JOB YOUR OWN COPY DECLARES, AND MATCH BOTH HALVES OF EACH. Not the
+first job: `iderex/kontor` splits its gate into four jobs and `iderex/schallweg`
+carries a self-test beside its check. And not the job's `name:` alone: where a
+job declares none, the check run carries the job ID instead, which is why
+`iderex/hoersaal` above is required as `pr-hygiene`.
 
 THIS CHECK PRODUCES NEITHER OF THOSE NAMES, and the near miss is the part to
 read slowly:

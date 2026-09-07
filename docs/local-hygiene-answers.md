@@ -282,10 +282,174 @@ the same hazard about its own file in its own words - that renaming the job
 "silently detaches it from the ruleset and takes a required check off the gate
 with it" - so the shape is known on the boards and not on the sequence.
 
+## Read on 7 September 2026: both are in force, and one job per file was too few
+
+The reading above intersected a required context with the job each local copy
+declares, and stopped there. Three things it did not ask decide whether the
+strand it describes is real, and the section did not name any of them as unread
+either - which is worse than naming them, because a bound nobody declared is a
+bound nobody can go and close.
+
+A ruleset in `evaluate` mode blocks no merge. A ruleset targeting branches a
+board's pull requests never go to blocks none of them. Classic branch protection
+is a second mechanism with a required set of its own, and nothing here had looked
+at it. And the match itself read ONE job out of each copy, where two boards in
+the set declare more than one.
+
+All four are read now, against the roster at `iderex/operations` `origin/main`
+`2d5c6d9eb0fe08b32bd6a8997542e22b3ddbfb9d`, over the removal set this page
+already derives - the boards holding a copy beside the call, plus
+`iderex/pruefstand`, whose gate is `hygiene.yml`:
+
+```
+$ awk -F'	' '$2 ~ /shared-hygiene\.yml/{print $1}' wf-list.tsv | sort > has-shared
+$ awk -F'	' '$2 ~ /(^|,)pr-hygiene\.yml(,|$)/{print $1}' wf-list.tsv | sort > has-local
+$ comm -12 has-shared has-local > has-both
+$ wc -l < has-shared ; wc -l < has-local ; wc -l < has-both
+19
+34
+17
+$ cp has-both removal-set; echo iderex/pruefstand >> removal-set; sort -o removal-set removal-set
+$ wc -l < removal-set
+18
+```
+
+Nineteen callers, thirty-four files named `pr-hygiene.yml` with this board's
+source among them, seventeen boards holding both, eighteen in the removal set:
+where 31 August left it and where 4 and 5 September found it again.
+
+EVERY JOB OF EVERY COPY IS MATCHED NOW, NOT THE FIRST. Reading one job per file
+was an assumption rather than a rule about these files, and two boards break it.
+The copies are fetched into `copies/` and every job in each one is taken with its
+id and, where it declares one, its name:
+
+```
+$ for f in copies/*.yml; do
+    b=$(basename "$f" .yml | sed 's|_|/|')
+    awk -v b="$b" '
+      /^jobs:/{inj=1; next}
+      inj && /^[^ ]/{inj=0}
+      inj && /^  [A-Za-z0-9_-]+:/{ jid=$1; sub(/:$/,"",jid);
+        if(cur!="") print b"	"cur"	"jname; cur=jid; jname="" }
+      inj && /^    name:/{ line=$0; sub(/^    name: */,"",line); jname=line }
+      END{ if(cur!="") print b"	"cur"	"jname }' "$f"
+  done > hyg-jobs.tsv
+$ wc -l < hyg-jobs.tsv ; cut -f1 hyg-jobs.tsv | sort -u | wc -l
+22
+18
+$ cut -f1 hyg-jobs.tsv | sort | uniq -c | awk '$1>1{print $1" "$2}'
+4 iderex/kontor
+2 iderex/schallweg
+```
+
+`iderex/kontor` splits its gate into four jobs and `iderex/schallweg` carries a
+self-test beside its check, so four of the twenty-two rows are jobs a
+first-job-only match never reached. `iderex/hoersaal` is the other shape worth
+naming: its job declares no `name:` at all, so what its ruleset requires is the
+job ID. Both halves of every row are matched below for that reason.
+
+Widening the match leaves the answer where it was:
+
+```
+$ : > hyg-rulesets.tsv
+$ while read -r b; do
+    ids=$(gh api "repos/$b/rulesets" --jq '.[].id' 2>/dev/null)
+    for id in $ids; do
+      gh api "repos/$b/rulesets/$id" --jq '"\(.id)	\(.name)	\(.enforcement)	\([.conditions.ref_name.include[]?]|join(","))	\([.rules[]? |
+        select(.type=="required_status_checks") |
+        .parameters.required_status_checks[]?.context] | join("|"))"'         | sed "s|^|$b	|" >> hyg-rulesets.tsv
+    done
+  done < removal-set
+$ awk -F'	' '$6!=""{print $1}' hyg-rulesets.tsv | sort -u | wc -l
+5
+$ awk -F'	' 'NR==FNR{ k[$1"	"$2]=1; if($3!="") k[$1"	"$3]=1; next }
+    $6!="" { n=split($6,a,"|"); for(i=1;i<=n;i++) if(($1"	"a[i]) in k)
+      printf "%s	%s	%s	%s
+", $1, a[i], $4, $5 }' hyg-jobs.tsv hyg-rulesets.tsv | sort -u
+iderex/hoersaal      pr-hygiene                       active  ~DEFAULT_BRANCH
+iderex/stammtisch    Deterministic PR-hygiene checks  active  ~DEFAULT_BRANCH
+```
+
+Two boards, five of the eighteen carrying a `required_status_checks` rule at
+all, both rulesets `active`, and both reaching the branch their own pull requests
+target. So the strand is real on both rather than discounted by enforcement or by
+a branch pattern, and the count of two survives a match wider than the one that
+produced it. The three boards that require something and are not in the pair
+require `local-gate` and nothing else, which no copy here declares.
+
+NOTHING OUTSIDE A RULESET REQUIRES ANY OF THOSE NAMES, which is the mechanism
+this page had never looked at:
+
+```
+$ while read -r b; do
+    def=$(gh api "repos/$b" --jq '.default_branch' 2>/dev/null)
+    out=$(gh api "repos/$b/branches/$def/protection"             --jq '[.required_status_checks.contexts[]?]|join("|")' 2>&1)
+    rc=$?
+    if [ $rc -ne 0 ]; then
+      echo "$out" | grep -q 'Branch not protected' && st=unprotected || st="ERR:$out"
+    else st=protected; fi
+    printf '%s	%s	%s
+' "$b" "$def" "$st"
+  done < removal-set > hyg-classic.tsv
+$ cut -f2 hyg-classic.tsv | sort | uniq -c
+     18 main
+$ cut -f3 hyg-classic.tsv | sed 's/ERR:.*/ERR/' | sort | uniq -c
+     18 unprotected
+```
+
+No line came back `ERR`, so no board in that tally is an access failure being
+read as an absence, and every one of the eighteen defaults to `main` - which is
+NOT the case on the DCO side of the same question, where
+`docs/dco-rulesets-and-the-delete.md` records seven of thirteen defaulting to
+`master` and one to `4.4`. A reader who carries `main` across from this page to
+that one gets eight boards wrong.
+
+`iderex/pruefstand` stays outside the trap for the reason the 1 September reading
+gave, re-read here with the enforcement beside it:
+
+```
+$ for id in $(gh api repos/iderex/pruefstand/rulesets --jq '.[].id'); do
+    gh api "repos/iderex/pruefstand/rulesets/$id" --jq '"\(.id)	\(.name)	\(.enforcement)	\([.conditions.ref_name.include[]?]|join(","))	\([.rules[]? |
+      select(.type=="required_status_checks") |
+      .parameters.required_status_checks[]?.context]|join("|"))"'
+  done
+20521019        gate    active  ~DEFAULT_BRANCH
+```
+
+An active ruleset that requires no status check at all.
+
+WHAT MOVES IS THE COMMAND AND NOT THE COUNT. Every one of the four readings
+agrees with what this page assumed, so the trap is still the same two boards.
+What was assumed rather than read is exactly what a migrating board would assume,
+and the sequence in `README.md` handed it a command printing the contexts alone,
+under two lines of output that were a summary of this page rather than anything
+that command prints. So a board whose ruleset is in evaluate mode, or whose
+ruleset targets branches its pull requests never touch, would have taken a
+ruleset edit it does not owe, and a board comparing its own run against that
+paste would have found nothing to compare. That step now prints the enforcement
+and the branches beside the contexts, as the DCO sequence's does, and shows one
+real board's line.
+
 ## Not evaluated
 
 Whether any of these gates is failing today. I read files, trees and rulesets,
 and no run.
+
+Whether either of the two rulesets is `active` at any later moment, and whether a
+board outside the two enters the set. Both were read on 7 September 2026 and both
+were; a ruleset moves by an edit on a board that is not this one, and
+`docs/dco-rulesets-and-the-delete.md` measures such an edit landing two and a
+half minutes after a reading taken here.
+
+Whether classic branch protection requires one of these names on a branch other
+than the default of one of the eighteen, or on a board outside the removal set. I
+read one branch per board, over that set and no wider.
+
+Whether `local-gate` is reported on the three boards that require it. Their
+rulesets were read and none of the three names anything a copy in this set
+produces, so they are outside the strand - but what does produce `local-gate`
+there, and whether it reports at all, is a question about those boards and not
+this one, and nothing here asked it.
 
 What `iderex/linienbuch` answers. Its `hygiene.yml` is a wrapper around a gate
 command compiled from Rust in that tree, which I did not fetch. It calls nothing
