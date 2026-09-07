@@ -720,8 +720,12 @@ READ YOUR RULESET FIRST, BECAUSE THE DELETE CAN STRAND A REQUIRED CHECK. If your
 branch ruleset requires the status check your local file produces, deleting the
 file leaves a required context that is never reported again, and a required
 check that never reports leaves every pull request PERMANENTLY PENDING rather
-than red - nothing merges and nothing says why. Eleven boards are in that
-position today:
+than red - nothing merges and nothing says why. Thirteen boards were in that
+position at the last reading, and RUN THE COMMAND ON YOUR OWN BOARD RATHER THAN
+COUNTING ON THAT NUMBER. It moves by a ruleset edit on a board that is not this
+one, which no file in this tree can see: two of the thirteen joined the set on
+the evening the reading that said eleven was written, one of them two and a half
+minutes after it landed.
 
 ```
 $ for id in $(gh api "repos/$BOARD/rulesets" --jq '.[].id'); do
@@ -732,7 +736,7 @@ $ for id in $(gh api "repos/$BOARD/rulesets" --jq '.[].id'); do
 ```
 
 THE NAMES MATCH AND THAT IS EXACTLY THE TRAP. This gate's job is called
-`DCO sign-off`, which is the string all eleven of those rulesets require, so a
+`DCO sign-off`, which is the string every one of those rulesets requires, so a
 board comparing the two names concludes they line up. A called workflow's check
 run arrives prefixed with the CALLING job's id, so what reports from the example
 above is `dco / DCO sign-off` and the bare `DCO sign-off` is never reported
@@ -744,7 +748,7 @@ run.
 So on a board whose ruleset names its local gate, the ruleset edit belongs in
 the same change as the delete: take the old context out and put the one your
 caller actually produces in, read off a run rather than typed. The reading
-behind the eleven is
+behind them, and the dates on which the set was counted, is
 [`docs/dco-rulesets-and-the-delete.md`](docs/dco-rulesets-and-the-delete.md) and
 the issue is `#25`.
 
