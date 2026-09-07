@@ -79,6 +79,56 @@ iderex/relais                            DCO sign-off
 iderex/stammtisch                        DCO sign-off
 ```
 
+`required.tsv` IS THE SAME ABSENCE ONE STEP FURTHER, and it is worse than a
+missing filename because the two blocks around it cannot be joined. The walk
+above prints one context per line and nothing else - no board, no job id, no job
+name, no separator - while the `awk` beneath it reads four tab-separated fields
+and matches `$2` and `$3` against the members of `$4`. Nothing on this page
+turned the first into the second, so a reader following the two literally gets an
+empty result rather than the eleven, and the same file is read again by the
+7 September section below.
+
+The `awk` is sound; only the file it reads was never produced. This is the row it
+wants, one line per copy, with the board and its two names carried through and
+the contexts joined:
+
+```
+$ while IFS=$'\t' read -r b jid nm; do
+    ctx=$(for id in $(gh api "repos/$b/rulesets" --jq '.[].id' 2>/dev/null); do
+            gh api "repos/$b/rulesets/$id" --jq '[.rules[]? |
+              select(.type=="required_status_checks") |
+              .parameters.required_status_checks[]?.context] | join("|")'
+          done | grep -v '^$' | paste -sd'|' -)
+    printf '%s\t%s\t%s\t%s\n' "$b" "$jid" "$nm" "$ctx"
+  done < jobs.tsv > required.tsv
+$ wc -l < required.tsv ; awk -F'\t' '$4!=""' required.tsv | wc -l
+63
+35
+```
+
+THE BOARD AND ITS TWO NAMES ARE CARRIED BY THE LOOP AND BY NOTHING ELSE, because
+the walk inside it prints neither: `$b`, `$jid` and `$nm` exist only in the shell
+reading `jobs.tsv`, and a version leaving the `printf` out writes one field where
+the `awk` reads four. That is the failure this repair is against and it is the
+one I made first while writing it. Thirty-five of the sixty-three rows come back
+with a non-empty fourth field, which is the figure the 7 September section reads
+off the same file.
+
+RUN TODAY IT RETURNS THIRTEEN AND NOT ELEVEN, and that is the population having
+moved rather than a correction to this section. The eleven are the reading of
+31 August and stay addressed at that date; the two boards that joined the set,
+and the two and a half minutes in which one of them did, are the
+`## Re-read on 7 September 2026` section below. What the repair establishes is
+that the `awk` printed here returns that section's thirteen unchanged once it is
+given the file it asks for, so the operator was never the thing at fault.
+
+`roster.txt` in `## The population` above and `boards` in the sections below are
+one list under two names - the seventy-four the roster holds - and `eleven.txt`
+is the board column of the eleven printed above. Neither is derived anywhere on
+this page either, and neither carries a count that moves if a reader rebuilds it
+wrongly, which is the only reason they are named here rather than given a block
+of their own.
+
 Thirty-five of the sixty-three carry a `required_status_checks` rule at all and
 twenty-eight carry none, so the eleven are eleven of thirty-five rather than of
 sixty-three.
@@ -303,10 +353,13 @@ counts. Both are read now, against the roster at `iderex/operations`
 copies - with `enforcement` and the target carried beside the contexts rather
 than the contexts alone.
 
-`boards` is the roster, `jobs.tsv` is the board, job id and job name of each copy
-that the section above builds, and `thirteen.tsv` is the board and ruleset id of
-each pair the intersection returns, so no name below is one this page has not
-given:
+`boards` is the roster, `jobs.tsv` is the board, job id and job name of each
+copy, and `thirteen.tsv` is the board and ruleset id of each pair the
+intersection returns. THIS SENTENCE SAID THE SECTION ABOVE BUILDS `jobs.tsv` AND
+NO SECTION ON THIS PAGE DID; the command that produces it is in
+`## The extraction every count here rests on was never written down` below, and
+until that section landed the promise this sentence ends on did not hold for the
+one name every count here depends on:
 
 ```
 $ ops=<operations>
@@ -416,6 +469,138 @@ ruleset targets branches its pull requests never touch, would have taken a
 ruleset edit it does not owe and read a trap that is not there. That command now
 prints the enforcement and the branches beside the contexts.
 
+## The extraction every count here rests on was never written down
+
+`jobs.tsv` is read by four commands on this page and produced by none of them.
+The sentence above says the section above it builds the file, and that sentence
+is what I am correcting: nothing on this page turned sixty-three fetched copies
+into a board, a job id and a job name. So the tally of job names, the
+intersection that returns the thirteen, the ruleset walk and the classic-
+protection walk all read a file a reader cannot rebuild, and the line promising
+that no name below is one this page has not given did not hold for the one name
+every count depends on.
+
+The hygiene side of the same question does give it, in
+`docs/local-hygiene-answers.md`, which is how the absence here became visible:
+one page builds `hyg-jobs.tsv` in front of the reader and the other does not.
+
+Here it is, against the roster at `iderex/operations` `origin/main`
+`a2d6dfe2472b09981b2bb5345427f7cd1bdcfd70` and its seventy-four boards. The
+copies are fetched into `copies/` and EVERY job in each one is taken with its id
+and, where it declares one, its name - rather than the first job of each file:
+
+```
+$ wc -l < boards
+74
+$ while read -r r; do
+    gh api "repos/$r/contents/.github/workflows/dco.yml" --jq '.content' 2>/dev/null |
+      base64 -d > "copies/$(echo "$r" | tr '/' '_').yml"
+  done < boards
+$ find copies -name '*.yml' -size 0 -delete; ls copies/*.yml | wc -l
+63
+$ for f in copies/*.yml; do
+    b=$(basename "$f" .yml | sed 's|_|/|')
+    awk -v b="$b" '
+      /^jobs:/{inj=1; next}
+      inj && /^[^ ]/{inj=0}
+      inj && /^  [A-Za-z0-9_-]+:/{ jid=$1; sub(/:$/,"",jid);
+        if(cur!="") print b"\t"cur"\t"jname; cur=jid; jname="" }
+      inj && /^    name:/{ line=$0; sub(/^    name: */,"",line); gsub(/^"|"$/,"",line); jname=line }
+      END{ if(cur!="") print b"\t"cur"\t"jname }' "$f"
+  done > jobs.tsv
+$ wc -l < jobs.tsv ; cut -f1 jobs.tsv | sort -u | wc -l
+63
+63
+```
+
+SIXTY-THREE ROWS OVER SIXTY-THREE COPIES, so no copy on this population declares
+a second job and the first-job-only reading lost nothing here. That is the
+opposite answer to the hygiene side, where four of twenty-two rows were jobs such
+a reading never reached, and it is an answer rather than an assumption only
+because the extraction above was run. A reader migrating a board still matches
+every job of their own file: what is measured here is this population today, not
+a rule about the shape of a `dco.yml`.
+
+The extractor is the load-bearing part, so its own bounds are read rather than
+trusted - every copy carries a `jobs:` block at column zero, none of the
+sixty-three indents with tabs, and an independent count of the keys one level
+inside that block agrees with it file by file:
+
+```
+$ grep -L '^jobs:' copies/*.yml ; grep -l $'\t' copies/*.yml
+$ for f in copies/*.yml; do
+    awk '/^jobs:/{i=1;next} i&&/^[^ #]/{i=0} i&&/^  [^ #]/{c++} END{print c+0}' "$f"
+  done | sort | uniq -c
+     63 1
+```
+
+Both greps print nothing. The tally the section above reads off this file
+reproduces exactly, both exception rows included:
+
+```
+$ cut -f3 jobs.tsv | sort | uniq -c | sort -rn
+     61 DCO sign-off
+      1 dco
+      1 DCO sign-off on every commit
+$ awk -F'\t' '$3!="DCO sign-off"' jobs.tsv
+iderex/Easy-Compliance-Manager  dco     DCO sign-off on every commit
+iderex/swarm.asm                dco     dco
+$ cut -f2 jobs.tsv | sort | uniq -c
+     63 dco
+$ awk -F'\t' '$3==""' jobs.tsv
+```
+
+EVERY JOB ID IS `dco` AND EVERY COPY DECLARES A `name:`, which decides the
+direction the id half of the match can fail in. Nothing here is the
+`iderex/hoersaal` shape the hygiene reading names, where a job declaring no
+`name:` makes the job ID the thing a ruleset requires; on this population the id
+half can only ADD a board, by matching a ruleset that happens to require the bare
+string `dco`. It adds none. Re-run over every row of the file above, with the
+matched half printed beside each line:
+
+```
+$ cut -f1 jobs.tsv | sort -u | while read -r b; do
+    for id in $(gh api "repos/$b/rulesets" --jq '.[].id' 2>/dev/null); do
+      gh api "repos/$b/rulesets/$id" --jq "\"$b\t\(.id)\t\(.name)\t\(.enforcement)\t\([.conditions.ref_name.include[]?]|join(\",\"))\t\"+([.rules[]? |
+        select(.type==\"required_status_checks\") |
+        .parameters.required_status_checks[]?.context] | join(\"|\"))"
+    done
+  done > rulesets.tsv
+$ awk -F'\t' '$6!=""{print $1}' rulesets.tsv | sort -u | wc -l
+35
+$ awk -F'\t' 'NR==FNR{ k[$1"\t"$2]="id"; if($3!="") k[$1"\t"$3]="name"; next }
+    $6!="" { n=split($6,a,"|"); for(i=1;i<=n;i++) if(($1"\t"a[i]) in k)
+      printf "%-42s %-16s %-8s %-9s %s\n", $1, a[i], k[$1"\t"a[i]], $4, $5 }' \
+    jobs.tsv rulesets.tsv | sort -u
+Flowfin/hub                                DCO sign-off     name     active    ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-requests           DCO sign-off     name     active    ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-server-pairing     DCO sign-off     name     active    ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-share-links        DCO sign-off     name     active    ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-smart-collections  DCO sign-off     name     active    ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-sso                DCO sign-off     name     active    refs/heads/main,refs/heads/5.0,refs/heads/4.4
+Flowfin/jellyfin-plugin-stats              DCO sign-off     name     active    ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-watchlist          DCO sign-off     name     active    ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-whisper-subtitles  DCO sign-off     name     active    ~DEFAULT_BRANCH
+iderex/hoersaal                            DCO sign-off     name     active    ~DEFAULT_BRANCH
+iderex/reissbrett                          DCO sign-off     name     active    ~DEFAULT_BRANCH
+iderex/relais                              DCO sign-off     name     active    ~DEFAULT_BRANCH
+iderex/stammtisch                          DCO sign-off     name     active    ~DEFAULT_BRANCH
+```
+
+Thirteen boards, thirty-five carrying a `required_status_checks` rule at all,
+every enforcement `active`, and the ref conditions the section above prints -
+`Flowfin/jellyfin-plugin-sso` naming its three branches literally and the other
+twelve resting on one condition. Every match is on the NAME half and not one is
+on the id, so the set is the same thirteen read against the same shape of
+evidence, and the two extra fields still change no answer.
+
+WHAT MOVES IS WHAT A READER CAN REBUILD, NOT THE COUNT. Every figure this page
+carried survives the extraction being written down, which is the outcome to
+expect and not the reason to write it: a count nobody can reproduce is a count
+whose next re-reading starts from the beginning, and the bound it hid - one job
+per file - was one the hygiene side had already found to bite. It was declared as
+unread on neither page until it was closed on that one.
+
 ## Not evaluated
 
 Whether the thirteen rulesets are enforced was this section's first line and is
@@ -440,3 +625,15 @@ longer taken on its contexts alone for the thirteen, which are read above; the
 other twenty-two boards carrying a `required_status_checks` rule were not read
 for it, because no context any of them requires is the name its own gate
 produces.
+
+Whether a copy declares more than one job was read by nothing until the section
+above, and was declared as unread by nothing either. It is read now over all
+sixty-three: none of them does. What is not evaluated is that at any later
+moment, and on any board outside this roster.
+
+Whether the extractor above reads a `dco.yml` written in a shape none of these
+sixty-three uses. It requires a `jobs:` key at column zero and two-space
+indentation under it, both of which are checked against this population and
+neither of which YAML requires; a copy using four spaces, a quoted key or a flow
+mapping would be read as carrying no job at all and would drop out of every count
+silently rather than loudly.
