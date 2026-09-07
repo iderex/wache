@@ -874,6 +874,14 @@ unreadable branch rather than the absent one. What produced the red is the
 combination and not a defect in either half: an identity exemption placed on one
 rule, and a second rule downstream consuming what the first rule harvested.
 
+THE RUN BEHIND THAT RED WAS WALKED ON 7 SEPTEMBER AND IT IS NOT THE STATE OF
+THAT BOARD. The paragraph is kept as it was read, because that is what the
+check-runs on that head said at that hour. What it could not see is that the red
+is a re-run executing a script `Flowfin/core` had already replaced, and that the
+sentence about which branch the run took describes a branch the version that ran
+does not have. Read `## The second reading on 7 September` below before quoting
+this board as a live example of anything.
+
 ### The six unread gates, read
 
 The block above reports six boards as deciding in source it did not fetch. The
@@ -1205,3 +1213,127 @@ template SHOULD reach rather than the boards that already configure an updater.
 Sixty boards configure none, and a majority taken over the thirteen says nothing
 about what the sixty would choose. That is the same bound the section on the
 shape decision opens with and this reading does not narrow it.
+
+## The second reading on 7 September, and the red gate was a re-run of a replaced script
+
+The section above closes by naming what it does not evaluate, and one of the
+three is whether the red at `Flowfin/core` is new: "the check-run on that head is
+the state today; no earlier Dependabot pull request on that board was walked."
+It is answered here, and the answer moves the finding rather than dating it.
+
+`Flowfin/core` carries two Dependabot pull requests, one closed and one open:
+
+    gh api -X GET repos/Flowfin/core/pulls -f state=all -f per_page=100 \
+      --jq '.[] | select(.user.login=="dependabot[bot]")
+            | [.number, .state, .created_at, .head.sha] | @tsv'
+
+    315  open    2026-09-07T05:20:06Z  9ba595887018f659b43e00b8746bec87d0407856
+    256  closed  2026-08-31T05:21:16Z  fe2fcb98bac0710820a40a247f2b47bb4aa19ec1
+
+### The red check run is five days younger than the pull request it sits on
+
+Every other check on #256's head ran when the pull request opened. The one that
+is red did not:
+
+    gh api repos/Flowfin/core/commits/fe2fcb98/check-runs \
+      --jq '.check_runs | sort_by(.started_at) | .[] | [.started_at, .name, .conclusion] | @tsv'
+
+    2026-08-31T05:21:23Z  hygiene / Deterministic PR hygiene   success
+    ... nineteen more, all started 2026-08-31T05:21, all success
+    2026-09-05T20:57:29Z  Deterministic PR-hygiene checks      failure
+
+and the run it belongs to is the one created with the pull request, on its third
+attempt:
+
+    gh run view 33360249735 --repo Flowfin/core --json attempt,createdAt,updatedAt,conclusion
+    attempt=3 created=2026-08-31T05:21:20Z updated=2026-09-05T20:57:37Z conclusion=failure
+
+So the local gate produced no verdict at all when #256 opened, and the red is a
+re-run started five days later.
+
+### The script that produced the red had already been replaced
+
+`Flowfin/core` decides this in `.github/pr-hygiene/hygiene.sh`, which the
+workflow calls, and that file was changed 43 minutes after #256 opened:
+
+    gh api -X GET repos/Flowfin/core/commits -f path=.github/pr-hygiene/hygiene.sh \
+      --jq '.[] | [.commit.committer.date, .sha[0:8], (.commit.message|split("\n")[0])] | @tsv'
+
+    2026-08-31T06:04:13Z  28b948fb  Tell a number that names no issue here from a lookup that could not be made (#259)
+    2026-08-31T05:16:36Z  630660bd  Propose dependency updates weekly, and let the gate judge a proposal it cannot ask for an issue from (#254)
+
+WHICH OF THE TWO RAN IS DECIDED BY THE LOG AND NOT BY THE DATES, because a
+re-run's checkout is not something this page can read. The two versions print
+different error lines for the same failure, and the line in the log is the
+earlier one, word for word:
+
+    630660bd:413  Could not read issue #${n}. The scope comparison cannot be made, and this run will not pass in place of it.
+    28b948fb:482  Could not read issue #${n}, and this repository did not answer either, so nothing was learned about that number. The scope comparison cannot be made, and this run will not pass in place of it.
+
+The failing job printed the first of those. So the red was produced by the
+version `Flowfin/core` replaced on 31 August, and the paragraph above that says
+this run "took the unreadable branch rather than the absent one" is describing a
+choice the version that ran could not make: `630660bd` has no absent branch.
+`28b948fb` is the change that added one, and its diff is where the three verdicts
+`found`, `absent` and `unreadable` first exist.
+
+### The repaired gate is green on the next proposal, and its green says nothing
+
+`Flowfin/core` #315 opened this morning and every check on its head is green,
+including the one that is red above:
+
+    gh api repos/Flowfin/core/commits/9ba59588/check-runs \
+      --jq '[.check_runs[] | select(.conclusion != "success")] | length'
+    0
+
+Its `changed-paths-inside-scope` leg meets the same shape of body - twenty-two
+bare numbers quoted out of upstream release notes - and takes the branch the
+repair added:
+
+    ok    names: 25 27 34 35 37 39 3956 3995 4007 4019 4023 4037 4051 4061 4070
+          4072 4085 4099 4101 4103 4106 4107
+    ...
+          issue #25 declares no Scope: line at column zero
+          #3956 names no issue on this repository, so it declares no scope. ...
+
+and it ends by saying, on its own line, what its green is worth:
+
+    NOT MADE: no issue this pull request names declares a 'Scope:' line at column
+    zero, so the changed paths were compared against nothing. This is a pass with
+    no comparison behind it, and it is not a pass with one.
+
+THAT IS THE SECOND OF THE THREE ROUTES THE SECTION ABOVE NAMES, ARRIVING ON THE
+BOARD IT USED AS THE EXAMPLE OF THE THIRD. The section says a rule over the body
+"passes 65 times in 77 on numbers that belong to another project, which is worse
+than a refusal because it is intermittent and its green means nothing". On this
+board the green now says so itself, which is better than the boards that pass
+silently and is still not a comparison.
+
+### What moves and what does not
+
+The three routes stand. The count of 33 local gates and their columns stand: they
+were read out of the boards' own source, not off a run.
+
+What moves is the one live example. `Flowfin/core` is not a board whose gate
+reddens a Dependabot pull request today; it is a board that met that failure on
+31 August, repaired it inside the hour, and carries one stale red on a re-run of
+the pull request that found it. A reader taking that row as the state of the
+board would be reading a job that ran a script the board no longer has.
+
+The red also gated nothing. #256 merged with it standing:
+
+    gh api repos/Flowfin/core/pulls/256 --jq '[.merged, .closed_at] | @tsv'
+    true  2026-09-06T15:41:53Z
+
+### What this section does not evaluate
+
+Why the run was re-attempted on 5 September. The attempt count is readable and
+what asked for it is not, and nothing here supposes a cause.
+
+Whether the other four boards in the table above are reading live gates or stale
+ones. Only the red row was walked, because only a red row was ever used as
+evidence of a shape; the four green rows say what they said.
+
+Whether any of the 13 body-keyed boards has repaired the same collapse. That
+would be a reading of thirteen trees rather than of one, and the tally above is
+over source as it stood when it was read.
