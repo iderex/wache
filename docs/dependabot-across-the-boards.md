@@ -537,9 +537,11 @@ and every reply was checked for an `errors` key before anything was counted:
 
 Joined mechanically against the table the section above landed, so the answer
 comes from the ids rather than from reading two lists side by side. The
-left-hand file is that table extracted out of this page at `origin/main`:
+left-hand file is that table extracted out of this page at `origin/main`,
+scoped to the section that carries it:
 
     git show origin/main:docs/dependabot-across-the-boards.md |
+      sed -n '/^## The reading on 4 September/,/^## /p' |
       grep -E '^    [A-Za-z0-9._/-]+ +[0-9a-f]{40}$' | awk '{print $1"\t"$2}' | sort > sep04.tsv
     jq -r '.data | to_entries[] | .value | select(.dep != null)
            | [.nameWithOwner, .dep.oid] | @tsv' batch.*.json | sort > sep06.tsv
@@ -549,6 +551,42 @@ left-hand file is that table extracted out of this page at `origin/main`:
     SAME on all twelve
     comm -23: nothing only in the 4 September list
     comm -13: erawright/steinbruch, only in this one
+
+THE `sed` LINE WAS NOT THERE WHEN THIS SECTION LANDED, AND WITHOUT IT THE COMMAND
+STOPPED REPRODUCING AT THE MOMENT ITS OWN OUTPUT WAS PASTED BELOW IT. The pattern
+matches an indented `board  <40 hex>` line anywhere in the file, and the table
+this section landed is such a table, so the page has carried two of them since
+this change merged. Counted at `origin/main`
+`dad1729adfc2f0335f1a7ffe7b70da511c925664`:
+
+    git show origin/main:docs/dependabot-across-the-boards.md |
+      grep -cE '^    [A-Za-z0-9._/-]+ +[0-9a-f]{40}$'
+    25
+
+Twelve boards appear in both tables, `join` emits one row per matching pair, and
+the unscoped run therefore returns 25 rows where the block above records twelve.
+With the `sed` line it returns the block above again, which is what makes this a
+repair of the reading rather than a second reading:
+
+    join -t$'\t' sep04.tsv sep06.tsv -o 0,1.2,2.2 | wc -l
+    12
+
+WHAT MAKES IT WORTH REPAIRING RATHER THAN NOTING IS THAT THE VERDICTS DO NOT
+MOVE. Both copies of each duplicated board carry the same id today, so all 25
+rows of the unscoped run read `SAME` and the fault is invisible in the output - a
+green answer over a denominator nobody counted. It becomes visible only once a
+board has actually moved, and that is a one-line near miss rather than a
+supposition. `unscoped.tsv` is the left-hand file the command produced before the
+`sed` line, with one of the two `iderex/cudec` ids replaced by zeroes:
+
+    awk -F'\t' 'BEGIN{OFS="\t"} {if($1=="iderex/cudec" && !seen++){$2="000...0"} print}' \
+      unscoped.tsv | sort | join -t$'\t' - sep06.tsv -o 0,1.2,2.2 |
+      awk -F'\t' '{print ($2==$3 ? "SAME  " : "MOVED ") $1}' | grep cudec
+    MOVED iderex/cudec
+    SAME  iderex/cudec
+
+One board, two rows, opposite verdicts, and nothing in the output saying which of
+them is the answer.
 
 So no copy changed content between 4 and 6 September, this board's included, and
 the eleven that carry no contract line are byte-for-byte what they were. That is
@@ -963,10 +1001,14 @@ references, or it covers nothing.
 
 ### What this section does not evaluate
 
-Whether the 12 body-keyed boards would actually go red. Each one's verdict
+Whether the 13 body-keyed boards would actually go red. Each one's verdict
 depends on the upstream release note in the pull request in front of it, which is
 text no reading here can hold, and the 65 in 77 above is a rate over a different
-population than any one board's next update.
+population than any one board's next update. THIS SAID TWELVE UNTIL NOW, AND
+THE CORRECTION THAT MOVED IT LANDED IN THE SAME MERGE. `### The six unread
+gates, read` above replaced that column with 13, and this sentence went on
+carrying the figure out of the block that section tells a reader to stop
+quoting.
 
 The boards the filename key does not reach at all. The six whose rules are in
 their own source were the other half of this sentence and are read above; the
