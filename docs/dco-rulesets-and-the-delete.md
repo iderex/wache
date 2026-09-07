@@ -79,6 +79,56 @@ iderex/relais                            DCO sign-off
 iderex/stammtisch                        DCO sign-off
 ```
 
+`required.tsv` IS THE SAME ABSENCE ONE STEP FURTHER, and it is worse than a
+missing filename because the two blocks around it cannot be joined. The walk
+above prints one context per line and nothing else - no board, no job id, no job
+name, no separator - while the `awk` beneath it reads four tab-separated fields
+and matches `$2` and `$3` against the members of `$4`. Nothing on this page
+turned the first into the second, so a reader following the two literally gets an
+empty result rather than the eleven, and the same file is read again by the
+7 September section below.
+
+The `awk` is sound; only the file it reads was never produced. This is the row it
+wants, one line per copy, with the board and its two names carried through and
+the contexts joined:
+
+```
+$ while IFS=$'\t' read -r b jid nm; do
+    ctx=$(for id in $(gh api "repos/$b/rulesets" --jq '.[].id' 2>/dev/null); do
+            gh api "repos/$b/rulesets/$id" --jq '[.rules[]? |
+              select(.type=="required_status_checks") |
+              .parameters.required_status_checks[]?.context] | join("|")'
+          done | grep -v '^$' | paste -sd'|' -)
+    printf '%s\t%s\t%s\t%s\n' "$b" "$jid" "$nm" "$ctx"
+  done < jobs.tsv > required.tsv
+$ wc -l < required.tsv ; awk -F'\t' '$4!=""' required.tsv | wc -l
+63
+35
+```
+
+THE BOARD AND ITS TWO NAMES ARE CARRIED BY THE LOOP AND BY NOTHING ELSE, because
+the walk inside it prints neither: `$b`, `$jid` and `$nm` exist only in the shell
+reading `jobs.tsv`, and a version leaving the `printf` out writes one field where
+the `awk` reads four. That is the failure this repair is against and it is the
+one I made first while writing it. Thirty-five of the sixty-three rows come back
+with a non-empty fourth field, which is the figure the 7 September section reads
+off the same file.
+
+RUN TODAY IT RETURNS THIRTEEN AND NOT ELEVEN, and that is the population having
+moved rather than a correction to this section. The eleven are the reading of
+31 August and stay addressed at that date; the two boards that joined the set,
+and the two and a half minutes in which one of them did, are the
+`## Re-read on 7 September 2026` section below. What the repair establishes is
+that the `awk` printed here returns that section's thirteen unchanged once it is
+given the file it asks for, so the operator was never the thing at fault.
+
+`roster.txt` in `## The population` above and `boards` in the sections below are
+one list under two names - the seventy-four the roster holds - and `eleven.txt`
+is the board column of the eleven printed above. Neither is derived anywhere on
+this page either, and neither carries a count that moves if a reader rebuilds it
+wrongly, which is the only reason they are named here rather than given a block
+of their own.
+
 Thirty-five of the sixty-three carry a `required_status_checks` rule at all and
 twenty-eight carry none, so the eleven are eleven of thirty-five rather than of
 sixty-three.
