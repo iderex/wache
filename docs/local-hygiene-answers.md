@@ -64,6 +64,62 @@ grep -iE 'hygiene|pull|pr[-_.]' wf.tsv | awk -F'\t' '{print $2}' | sort | uniq -
       1 doc-hygiene.yml
 ```
 
+`wf-list.tsv`, WHICH THE 7 SEPTEMBER SECTION BELOW READS TWICE, IS DERIVED FROM
+`wf.tsv` AND WAS WRITTEN DOWN NOWHERE. It is the same rows with one line per
+board instead of one line per file, and giving it here keeps both sections on one
+population rather than on two fetches taken at different moments:
+
+```
+awk -F'\t' '{ if($1!=b){ if(b!="") print b"\t"n; b=$1; n=$2 } else n=n","$2 }
+     END{ if(b!="") print b"\t"n }' wf.tsv > wf-list.tsv
+wc -l < wf-list.tsv
+74
+```
+
+Re-derived on 7 September 2026 against the roster at `iderex/operations`
+`origin/main` `a2d6dfe2472b09981b2bb5345427f7cd1bdcfd70`, this returns the 19,
+34 and 17 the section below reads off it, with that section's two `awk` lines
+unchanged.
+
+ONE ROW OF `wf.tsv` IS AN ERROR BODY AND NOT A FILENAME, and it takes the next
+board's first file with it. `gh api` writes its error body to STDOUT rather than
+to stderr, does not apply `--jq` to it and ends it with no newline, so the board
+holding no `.github/workflows` directory lands the 404 JSON in the name column
+AND the first line of the NEXT board's listing is glued onto the same line, where
+the `sed` prefixes the pair once:
+
+```
+grep -c 'Not Found' wf.tsv
+1
+grep -P '^iderex/learn-rust\t' wf.tsv
+iderex/learn-rust       prueflauf.yml
+gh api "repos/iderex/learn-rust/contents/.github/workflows" --jq '.[].name'
+codeql.yml
+prueflauf.yml
+```
+
+`iderex/lagetisch` tracks no such directory, which `docs/dco-tail.md` records
+against the same roster, so it is the board that produces the body;
+`iderex/learn-rust` is the board after it, and its `codeql.yml` has no row of its
+own on this page's evidence while the API lists it.
+
+THE COUNTS BELOW SURVIVE IT BY LUCK AND NOT BY CONSTRUCTION, which is the part
+worth more than the repair. The swallowed name is `codeql.yml`, so the malformed
+row matches neither `shared-hygiene.yml` nor `pr-hygiene.yml` and the 19, 34 and
+17 are what they would be without it. Had the board after the gap declared its
+own `pr-hygiene.yml` first, that board would have dropped out of `has-local`, out
+of `has-both` and out of the removal set, and nothing on this page would have
+said so. The row is left in `wf.tsv` and named here rather than filtered out,
+because a filter would take the disclosure with it and the next reader would meet
+the same trap with nothing to read.
+
+`docs/standardisation-survey.md` names this trap for `dependabot.tsv` and says of
+the workflow inventory that a 404 there "lands one malformed line instead of a
+false cluster". That is the half of it. A malformed line is also a LOST line, and
+which line is lost depends on the order the roster is walked in - so the sentence
+understates the same defect it was written to bound. That page is `#8`'s and is
+not edited from here.
+
 THE FILENAME BOUND WAS HIDING BOARDS AND NOT ONLY FILES. Four of those names
 are not a local gate. `iderex/lesesaal`'s `text-hygiene.yml` refuses line
 endings and encoding and its `doc-hygiene.yml` is a documentation lint;
