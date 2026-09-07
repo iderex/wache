@@ -701,9 +701,14 @@ has executed. A board adopting it is still the first to run it against its own
 history and its own `references`.
 
 The reading behind those figures is
-[`docs/dco-tail.md`](docs/dco-tail.md): twenty-eight singleton copies read one at
-a time, each difference placed as drift or as a board-local deviation, with the
-command beside every number.
+[`docs/dco-tail.md`](docs/dco-tail.md): every copy of this gate that no other
+board holds, read one at a time, each difference placed as drift or as a
+board-local deviation, with the command beside every number. THE COUNT IS ON
+THAT PAGE AND NOT HERE. It was twenty-eight when the page landed on 27 August
+2026 and this sentence went on saying so after the tail grew to thirty-one on
+30 August. The page carries its own re-readings and the command that derives
+the number today, and a figure copied out of it goes stale on a schedule this
+file cannot see.
 
 ### If you are deleting a local copy of this gate
 
