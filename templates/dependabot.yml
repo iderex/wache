@@ -22,23 +22,33 @@
 # result rather than the expected one. Add your board's own ecosystems BELOW
 # this block, and leave this block alone so the drift test can read it.
 #
-# WHERE THE FOUR VALUES COME FROM. Each one is the answer the nine boards that
+# WHERE THE FOUR VALUES COME FROM. Each one is the answer the boards that
 # already configure an updater actually hold, read one file at a time in
-# docs/dependabot-across-the-boards.md, and not a preference:
+# docs/dependabot-across-the-boards.md, and not a preference. The derivation was
+# taken on 28 August 2026 over the nine boards carrying the file then, and run
+# again on 7 September over the thirteen carrying it then, this board excluded
+# because its own copy is this block. Both readings are on that page; the
+# figures below are the second, and every value survived the first:
 #
-#   default-days: 7            all nine
-#   interval: weekly           eight of nine
-#   open-pull-requests-limit   5 on four boards, 10 on two, 3 on two, absent on one
-#   groups                     eight of nine
+#   default-days: 7            13 of 13
+#   interval: weekly           12 of 13, monthly on one
+#   open-pull-requests-limit   5 on five boards, 10 on three, 3 on two, 1 on one,
+#                              absent on two
+#   groups                     12 of 13
 #
-# THE QUOTING IS DERIVED THE SAME WAY AND IS NOT A HOUSE STYLE. Six of the nine
-# leave `package-ecosystem` and `interval` unquoted and eight of the nine quote
-# `directory`, so this file does the same. It matters because the drift test is
-# a byte comparison of this block: a quoting choice nobody holds would report
-# every copy as drifted for a difference that changes nothing.
+# A COUNT WRITTEN HERE GOES STALE THE DAY A BOARD LANDS A FILE, which is what the
+# nine this replaces became. It is kept rather than dropped because a value with
+# no population behind it reads as a preference, and the date beside it is what
+# tells a reader when to go and run the derivation again.
 #
-# Labels are NOT here. Four of the nine set them and five do not, which is not
-# an answer this board may record on their behalf.
+# THE QUOTING IS DERIVED THE SAME WAY AND IS NOT A HOUSE STYLE. Eight of the
+# thirteen leave `package-ecosystem` and `interval` unquoted and ten of the
+# thirteen quote `directory`, so this file does the same. It matters because the
+# drift test is a byte comparison of this block: a quoting choice nobody holds
+# would report every copy as drifted for a difference that changes nothing.
+#
+# Labels are NOT here. Five of the thirteen set them and eight do not, which is
+# not an answer this board may record on their behalf.
 #
 # WHY AN UPDATER AT ALL ON A BOARD THAT PINS BY SHA. A pinned sha never moves on
 # its own, so pinning removes the surprise and keeps the version. This block is

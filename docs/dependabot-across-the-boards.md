@@ -537,9 +537,11 @@ and every reply was checked for an `errors` key before anything was counted:
 
 Joined mechanically against the table the section above landed, so the answer
 comes from the ids rather than from reading two lists side by side. The
-left-hand file is that table extracted out of this page at `origin/main`:
+left-hand file is that table extracted out of this page at `origin/main`,
+scoped to the section that carries it:
 
     git show origin/main:docs/dependabot-across-the-boards.md |
+      sed -n '/^## The reading on 4 September/,/^## /p' |
       grep -E '^    [A-Za-z0-9._/-]+ +[0-9a-f]{40}$' | awk '{print $1"\t"$2}' | sort > sep04.tsv
     jq -r '.data | to_entries[] | .value | select(.dep != null)
            | [.nameWithOwner, .dep.oid] | @tsv' batch.*.json | sort > sep06.tsv
@@ -549,6 +551,42 @@ left-hand file is that table extracted out of this page at `origin/main`:
     SAME on all twelve
     comm -23: nothing only in the 4 September list
     comm -13: erawright/steinbruch, only in this one
+
+THE `sed` LINE WAS NOT THERE WHEN THIS SECTION LANDED, AND WITHOUT IT THE COMMAND
+STOPPED REPRODUCING AT THE MOMENT ITS OWN OUTPUT WAS PASTED BELOW IT. The pattern
+matches an indented `board  <40 hex>` line anywhere in the file, and the table
+this section landed is such a table, so the page has carried two of them since
+this change merged. Counted at `origin/main`
+`dad1729adfc2f0335f1a7ffe7b70da511c925664`:
+
+    git show origin/main:docs/dependabot-across-the-boards.md |
+      grep -cE '^    [A-Za-z0-9._/-]+ +[0-9a-f]{40}$'
+    25
+
+Twelve boards appear in both tables, `join` emits one row per matching pair, and
+the unscoped run therefore returns 25 rows where the block above records twelve.
+With the `sed` line it returns the block above again, which is what makes this a
+repair of the reading rather than a second reading:
+
+    join -t$'\t' sep04.tsv sep06.tsv -o 0,1.2,2.2 | wc -l
+    12
+
+WHAT MAKES IT WORTH REPAIRING RATHER THAN NOTING IS THAT THE VERDICTS DO NOT
+MOVE. Both copies of each duplicated board carry the same id today, so all 25
+rows of the unscoped run read `SAME` and the fault is invisible in the output - a
+green answer over a denominator nobody counted. It becomes visible only once a
+board has actually moved, and that is a one-line near miss rather than a
+supposition. `unscoped.tsv` is the left-hand file the command produced before the
+`sed` line, with one of the two `iderex/cudec` ids replaced by zeroes:
+
+    awk -F'\t' 'BEGIN{OFS="\t"} {if($1=="iderex/cudec" && !seen++){$2="000...0"} print}' \
+      unscoped.tsv | sort | join -t$'\t' - sep06.tsv -o 0,1.2,2.2 |
+      awk -F'\t' '{print ($2==$3 ? "SAME  " : "MOVED ") $1}' | grep cudec
+    MOVED iderex/cudec
+    SAME  iderex/cudec
+
+One board, two rows, opposite verdicts, and nothing in the output saying which of
+them is the answer.
 
 So no copy changed content between 4 and 6 September, this board's included, and
 the eleven that carry no contract line are byte-for-byte what they were. That is
@@ -963,10 +1001,14 @@ references, or it covers nothing.
 
 ### What this section does not evaluate
 
-Whether the 12 body-keyed boards would actually go red. Each one's verdict
+Whether the 13 body-keyed boards would actually go red. Each one's verdict
 depends on the upstream release note in the pull request in front of it, which is
 text no reading here can hold, and the 65 in 77 above is a rate over a different
-population than any one board's next update.
+population than any one board's next update. THIS SAID TWELVE UNTIL NOW, AND
+THE CORRECTION THAT MOVED IT LANDED IN THE SAME MERGE. `### The six unread
+gates, read` above replaced that column with 13, and this sentence went on
+carrying the figure out of the block that section tells a reader to stop
+quoting.
 
 The boards the filename key does not reach at all. The six whose rules are in
 their own source were the other half of this sentence and are read above; the
@@ -976,3 +1018,190 @@ judged, and nothing here claims a fleet total.
 Whether the red at `Flowfin/core` is new. The check-run on that head is the state
 today; no earlier Dependabot pull request on that board was walked, so how long
 this has stood is not read here.
+
+## The reading on 7 September, and the template's own values are derived again
+
+Every section above counts the copies, compares them, or reads what a board would
+have to do to become one. None of them asks whether the CONTENT this board holds
+is still the answer the boards hold. That is the half of `#24`'s second done-when
+about the named place rather than about who has copied out of it, and it has an
+expiry the copy count does not: `templates/dependabot.yml` states in its own
+header that each of its four values is what the nine boards carrying an updater
+already hold. Nine was the population on 28 August. Four more boards have gained
+the file since, and no section above runs the derivation again over them - each
+one counts the copies or compares them, and the header has gone on stating a
+population that stopped being the population on 29 August.
+
+Against the roster at `iderex/operations` `origin/main`
+`8fb4684c49d1418c51679c52149c240af81e7dcd`, 74 boards, derived with the
+`boards()` function `docs/standardisation-survey.md` declares rather than from a
+list kept anywhere. The same route as the two sections above - each board's
+`.github/dependabot.yml` asked for as a typed blob with its `oid` and `text`,
+nineteen boards to a query, four queries - and every reply checked for an
+`errors` key before anything was counted:
+
+    jq -r 'if .errors then (.errors|length|tostring)+" errors" else "no errors key" end' batch.*.json
+    no errors key
+    no errors key
+    no errors key
+    no errors key
+
+    74 boards, 74 with a default branch
+    60 absent
+    14 present, 14 distinct blob ids, and 0 whose text came back null
+
+    Flowfin/core                           8d318eacc2fb0a6967779f5410e6e05e97a97ba3
+    Flowfin/hub                            30b8f8e2d1727b46c47db4a140965f9d9728d54d
+    Flowfin/jellyfin-plugin-invites        549a1abd7b4daa980f3c4e7e622bca77f5afd5a7
+    Flowfin/jellyfin-plugin-sso            c50ea5247148f0a3011bb2f87875c7e8edad13c9
+    Flowfin/jellyfin-plugin-watchlist      a0f8498b8a4c6f5fc0ae1f4ecbae2047e7666d8b
+    Flowfin/lab                            87affb3ca20e7d373c049faf93682dac660bf27d
+    Flowfin/site                           f34392a1aea9a5685b9ced0cc52db94686020cc2
+    erawright/steinbruch                   4c1f97011aba8487d4989b27ede9ea3907361985
+    iderex/Easy-Compliance-Manager         46a0f5e6baf5e667b0f314ca5e9ed67708c341a3
+    iderex/cudec                           880e0e3d6cb4a6e0bf3016f756bb6ba0cf512ba9
+    iderex/lichttisch                      92f0ad415f82f6233cc6c24532cae5ffa10c915b
+    iderex/retusche                        f9a5231933406b319fd657e8b1eabe6443f39437
+    iderex/swarm.asm                       ad0be0bc08b68146d3e1d4bd7385ed5effee0c5c
+    iderex/wache                           7b0444a82e1268a4a0dd1fc865ef0fed6c98f845
+
+THE DERIVATION READS VALUES OUT OF EVERY FILE, WHICH IS WHERE A READING CAN
+QUIETLY STOP BEING ABOUT THE BYTES THE ID COLUMN COUNTS. The comparisons above
+need an `oid` and the two contract lines; the table below needs the whole block
+parsed, so a decoder that mangled anything on the way would move a value rather
+than announce itself. Each copy was written out and hashed:
+
+    for f in copies/*.yml; do printf '%s %s\n' "$(git hash-object "$f")" "$f"; done
+    14 of 14 equal the oid the query returned beside that board
+
+`git hash-object` computes the same blob id git would, so an equal hash is the
+whole file matching and not a sample of it.
+
+### The thirteen of 6 September have not moved, and the fourteenth is Flowfin/hub
+
+Joined against the table the section above landed, extracted with the scoped form
+that section now carries:
+
+    git show origin/main:docs/dependabot-across-the-boards.md |
+      sed -n '/^## The reading on 6 September/,/^## /p' |
+      grep -E '^    [A-Za-z0-9._/-]+ +[0-9a-f]{40}$' | awk '{print $1"\t"$2}' | sort > sep06.tsv
+    join -t$'\t' sep06.tsv sep07.tsv -o 0,1.2,2.2 |
+      awk -F'\t' '{print ($2==$3 ? "SAME  " : "MOVED ") $1}'
+
+    SAME on all thirteen
+    comm -23: nothing only in the 6 September list
+    comm -13: Flowfin/hub, only in this one
+
+`Flowfin/hub` is the fourteenth board, and the file arrived there between 6 and
+7 September. It names neither contract line, as the twelve other boards without
+the contract do not:
+
+    jq -r '.data | to_entries[] | .value | select(.dep != null)
+           | [ .nameWithOwner,
+               (.dep.text | split("\n")
+                | map(select(test("^#   (origin|taken-at): ")))
+                | map(sub("^#   [a-z-]+: +";""))
+                | join(" | ")) ] | @tsv' batch.*.json
+
+    Flowfin/hub            (neither line)
+    the other twelve       (neither line)
+    iderex/wache           iderex/wache templates/dependabot.yml | a637780d22d9472988fc5c330643de63b4e5e68a
+
+One copy of fourteen names an origin and a commit, and it is this board's, as on
+29 and 31 August and 4 and 6 September. Ten days after the template landed no
+board outside this one has taken it, and the third state this page describes -
+not up to date, not drifted, unjudged - now covers thirteen boards where it
+covered twelve.
+
+### The four values, re-derived over the thirteen
+
+The population is the thirteen boards OTHER than this one. This board's copy IS
+the template's block, so counting it would be the template voting for itself, and
+the derivation the header records was taken over a population this board was not
+in. The values are read out of the `github-actions` block the drift test extracts
+and nowhere else, so a board's own ecosystems below it cannot reach this table:
+
+    board                              days  interval  limit  groups  labels
+    Flowfin/core                       7     weekly    1      yes     yes
+    Flowfin/hub                        7     weekly    10     yes     no
+    Flowfin/jellyfin-plugin-invites    7     monthly   3      yes     yes
+    Flowfin/jellyfin-plugin-sso        7     weekly    10     yes     no
+    Flowfin/jellyfin-plugin-watchlist  7     weekly    10     yes     no
+    Flowfin/lab                        7     weekly    5      no      yes
+    Flowfin/site                       7     weekly    -      yes     yes
+    erawright/steinbruch               7     weekly    -      yes     no
+    iderex/Easy-Compliance-Manager     7     weekly    5      yes     no
+    iderex/cudec                       7     weekly    5      yes     no
+    iderex/lichttisch                  7     weekly    5      yes     yes
+    iderex/retusche                    7     weekly    3      yes     no
+    iderex/swarm.asm                   7     weekly    5      yes     no
+
+    default-days               7 on 13 of 13
+    interval                   weekly 12, monthly 1
+    open-pull-requests-limit   5 on five, 10 on three, 3 on two, 1 on one, absent on two
+    groups                     present on 12 of 13
+    labels                     set on 5 of 13, absent on 8
+
+EVERY VALUE THE TEMPLATE HOLDS IS STILL THE ONE WITH THE MOST BOARDS BEHIND IT,
+and that is the answer rather than a formality: the file could have become a
+preference nobody holds while the copy count went on being the thing anybody
+measured. `default-days: 7` is unanimous on thirteen as it was on nine.
+`interval: weekly` is 12 of 13. `groups` is 12 of 13. Labels are still set by a
+minority, so leaving them out is still not a decision taken on anybody's behalf.
+
+`open-pull-requests-limit` IS THE ONE THAT MOVED AND IT IS THE WEAKEST OF THE
+FOUR. Five of thirteen hold the canonical `5`, which is a plurality of 38 per
+cent where the nine gave it 44, and three boards now hold `10` against two
+before. It is still ahead and it is ahead of a spread rather than of one rival.
+This is the value to re-derive first the next time a board lands a file, and the
+only one where the template could stop being derived without any board disagreeing
+with it directly.
+
+The quoting is derived the same way and it holds:
+
+    package-ecosystem unquoted    8 of 13
+    interval unquoted             8 of 13
+    directory quoted             10 of 13
+
+### The header was carrying a live count of nine, and it is dated now
+
+`templates/dependabot.yml` said its values are what "the nine boards that already
+configure an updater actually hold", in the present tense, with `all nine` and
+`eight of nine` beside each one. Thirteen boards hold one. The header carries the
+figures above with the date each derivation was taken instead, so a reader can
+see when to run it again rather than reading a population that stopped being the
+population on 31 August, which is the section above that first counted more than
+nine.
+
+THE BLOCK IS UNTOUCHED AND THIS BOARD'S COPY IS STILL UP TO DATE UNDER THE
+CONTRACT, which is a property of the contract rather than luck. The drift test
+compares the `github-actions` block, comments dropped, and the near-misses under
+`## The first copy, and the first run in which taken-at resolved` already close
+that: "a moved value is drift, a rewritten comment is not". Run rather than
+cited, against the commit this board's copy names:
+
+    git show a637780d22d9472988fc5c330643de63b4e5e68a:templates/dependabot.yml |
+      block | diff - <(block < .github/dependabot.yml)
+    diff exit=0
+
+So the copy's `taken-at` still resolves to a template whose block is
+byte-identical to it, and nothing here asks any board that had taken the template
+to take it again.
+
+### What this section does not evaluate
+
+Whether the four boards other than this one that gained the file since the
+template landed were shown it. None of them names it, which is what the contract
+lines say; why they did not take it is decided on those boards and written
+nowhere this page can read, and the leg that would put the template in front of
+them is still `#31`'s.
+
+Whether `Flowfin/hub` meets the red gate step 3 of the README sequence warns
+about. It already carries the file, so the sequence is behind it rather than in
+front of it, and its own pull-request rules were not read here.
+
+Whether the values would still be derived if the population were the boards a
+template SHOULD reach rather than the boards that already configure an updater.
+Sixty boards configure none, and a majority taken over the thirteen says nothing
+about what the sixty would choose. That is the same bound the section on the
+shape decision opens with and this reading does not narrow it.
