@@ -729,11 +729,21 @@ minutes after it landed.
 
 ```
 $ for id in $(gh api "repos/$BOARD/rulesets" --jq '.[].id'); do
-    gh api "repos/$BOARD/rulesets/$id" --jq '[.rules[]? |
+    gh api "repos/$BOARD/rulesets/$id" --jq '"\(.name)\t\(.enforcement)\t\([.conditions.ref_name.include[]?]|join(","))\t\([.rules[]? |
       select(.type=="required_status_checks") |
-      .parameters.required_status_checks[]?.context] | .[]'
+      .parameters.required_status_checks[]?.context] | join("|"))"'
   done
 ```
+
+READ THE ENFORCEMENT AND THE BRANCHES BESIDE THE CONTEXTS, because a required
+context strands nothing where its ruleset is in `evaluate` mode or targets
+branches your pull requests never go to, and the contexts on their own cannot
+tell you which of them you have. Note which branch it names, too: of the
+thirteen boards at the last reading, seven default to `master` and one to `4.4`,
+so `main` is the wrong assumption on eight of them. On that population the two
+extra fields changed no answer - all thirteen are `active` and all thirteen
+reach their own default branch - and they are in the command because what you
+are reading is your board and not that population.
 
 THE NAMES MATCH AND THAT IS EXACTLY THE TRAP. This gate's job is called
 `DCO sign-off`, which is the string every one of those rulesets requires, so a

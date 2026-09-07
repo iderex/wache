@@ -293,19 +293,150 @@ gate    active
 That answers it for two of the thirteen and leaves the other eleven where the
 `## Not evaluated` line below puts them.
 
+## The same night: all thirteen are active, and rulesets are the whole of it
+
+A required context strands a pull request only where the rule requiring it is in
+force and reaches the branch that pull request targets. The reading above
+establishes neither, and the `## Not evaluated` section below said so on both
+counts. Both are read now, against the roster at `iderex/operations`
+`origin/main` `8751e8a57e5898402277c939834130ad07346098`, over the same sixty-three
+copies - with `enforcement` and the target carried beside the contexts rather
+than the contexts alone.
+
+`boards` is the roster, `jobs.tsv` is the board, job id and job name of each copy
+that the section above builds, and `thirteen.tsv` is the board and ruleset id of
+each pair the intersection returns, so no name below is one this page has not
+given:
+
+```
+$ ops=<operations>
+$ git -C $ops ls-tree --name-only origin/main store/repo/ | grep -v README |
+    sed 's|store/repo/||;s|[.]md$||' > ids
+$ while read -r id; do
+    printf '%s/%s
+' "$(git -C $ops show "origin/main:store/repo/$id.md" |
+      awk -F': ' '/^Owner:/{print $2}')" "$id"
+  done < ids > boards
+$ wc -l < boards
+74
+$ wc -l < jobs.tsv
+63
+$ while IFS=$'\t' read -r b jid nm; do
+    for id in $(gh api "repos/$b/rulesets" --jq '.[].id' 2>/dev/null); do
+      gh api "repos/$b/rulesets/$id" --jq "\"$b\t\(.id)\t\(.name)\t\(.enforcement)\t\(.target)\t\"+([.rules[]? |
+        select(.type==\"required_status_checks\") |
+        .parameters.required_status_checks[]?.context] | join(\"|\"))"
+    done
+  done < jobs.tsv > rulesets.tsv
+$ awk -F'\t' 'NR==FNR{jid[$1]=$2; nm[$1]=$3; next}
+    $6!="" { n=split($6,a,"|"); for(i=1;i<=n;i++) if(a[i]==jid[$1] || a[i]==nm[$1]) print $4 }' \
+    jobs.tsv rulesets.tsv | sort | uniq -c
+     13 active
+$ awk -F'\t' 'NR==FNR{jid[$1]=$2; nm[$1]=$3; next}
+    $6!="" { n=split($6,a,"|"); for(i=1;i<=n;i++) if(a[i]==jid[$1] || a[i]==nm[$1]) print $1"\t"$2 }' \
+    jobs.tsv rulesets.tsv | sort -u > thirteen.tsv
+$ wc -l < thirteen.tsv
+13
+```
+
+Thirteen boards and thirteen `active` rulesets. Not one of the thirteen is in
+evaluate mode, so the strand this page describes is what every one of them meets
+rather than what some subset of them meets, and the count of thirteen needs no
+discount.
+
+THE RULE HAS TO REACH THE BRANCH AS WELL, and twelve of the thirteen say so with
+one condition rather than a branch name. `Flowfin/jellyfin-plugin-sso` is the
+exception in both directions: it names three branches literally, its default is
+not `main`, and the strand there would reach two branches beyond the default:
+
+```
+$ while IFS=$'\t' read -r b rid; do
+    def=$(gh api "repos/$b" --jq '.default_branch')
+    inc=$(gh api "repos/$b/rulesets/$rid" --jq '[.conditions.ref_name.include[]?]|join(",")')
+    printf '%-42s %-7s %s\n' "$b" "$def" "$inc"
+  done < thirteen.tsv
+Flowfin/hub                                main    ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-requests           master  ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-server-pairing     master  ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-share-links        master  ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-smart-collections  master  ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-sso                4.4     refs/heads/main,refs/heads/5.0,refs/heads/4.4
+Flowfin/jellyfin-plugin-stats              master  ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-watchlist          master  ~DEFAULT_BRANCH
+Flowfin/jellyfin-plugin-whisper-subtitles  master  ~DEFAULT_BRANCH
+iderex/hoersaal                            main    ~DEFAULT_BRANCH
+iderex/reissbrett                          main    ~DEFAULT_BRANCH
+iderex/relais                              main    ~DEFAULT_BRANCH
+iderex/stammtisch                          main    ~DEFAULT_BRANCH
+```
+
+`refs/heads/4.4` is in that list, so every one of the thirteen reaches the branch
+its own pull requests are opened against. Eight of the thirteen would have been
+read wrong by a reader who assumed `main`: seven default to `master` and one to
+`4.4`.
+
+```
+$ while IFS=$'\t' read -r b rid; do gh api "repos/$b" --jq '.default_branch'; done < thirteen.tsv |
+    sort | uniq -c
+      1 4.4
+      5 main
+      7 master
+```
+
+NOTHING OUTSIDE A RULESET REQUIRES THE NAME, which is the other bound the section
+below declared. Classic branch protection is a separate mechanism with its own
+required set, and none of the sixty-three carries it on the branch these gates
+run against:
+
+```
+$ while IFS=$'\t' read -r b jid nm; do
+    def=$(gh api "repos/$b" --jq '.default_branch' 2>/dev/null)
+    out=$(gh api "repos/$b/branches/$def/protection" \
+            --jq '[.required_status_checks.contexts[]?]|join("|")' 2>&1)
+    rc=$?
+    if [ $rc -ne 0 ]; then
+      echo "$out" | grep -q 'Branch not protected' && st=unprotected || st="ERR:$out"
+    else st=protected; fi
+    printf '%s\t%s\t%s\n' "$b" "$def" "$st"
+  done < jobs.tsv > classic.tsv
+$ cut -f3 classic.tsv | sed 's/ERR:.*/ERR/' | sort | uniq -c
+     63 unprotected
+```
+
+No line came back `ERR`, so no board in that tally is an access failure being
+read as an absence: each of the sixty-three answered with the API's own `Branch
+not protected`.
+
+WHAT THIS CHANGES IS THE COMMAND AND NOT THE COUNT. Every one of the three
+readings agrees with what the sections above assumed, so the set is thirteen
+either way. What was assumed rather than read is exactly what a migrating board
+would also assume, and the sequence in `README.md` handed it a command printing
+the contexts alone - so a board whose ruleset is in evaluate mode, or whose
+ruleset targets branches its pull requests never touch, would have taken a
+ruleset edit it does not owe and read a trap that is not there. That command now
+prints the enforcement and the branches beside the contexts.
+
 ## Not evaluated
 
-Whether the eleven rulesets of the 4 September reading are enforced. I read the
-required contexts and not `enforcement`, so a ruleset in evaluate mode counts
-there the same as an active one. The two boards the re-reading adds were read
-for it and both are `active`; the eleven were not re-read.
+Whether the thirteen rulesets are enforced was this section's first line and is
+read above: all thirteen are `active` on 7 September 2026. What is not evaluated
+is that fact at any later moment. Enforcement moves by an edit on a board that is
+not this one, and the section above measures such an edit landing two and a half
+minutes after a reading here.
 
-Whether classic branch protection requires the same context anywhere. I read
-rulesets only, which is the same bound the hygiene reading declared for itself.
+Whether classic branch protection requires the same context anywhere was this
+section's second line and is read above for the default branch of each of the
+sixty-three: none of them is protected by that mechanism at all. A classic rule
+on any other branch of any of them is outside the reading, and so is any board
+this roster does not carry. The hygiene reading still declares the narrower bound
+for itself.
 
 Whether any of the sixty-two copies is failing today. This reads files, listings
 and rulesets, and no run's verdict.
 
-Every listing comes from each board's default branch, so a ruleset targeting
-another branch pattern is counted here by its contexts alone and a gate living
-only on another branch is outside the reading.
+Every listing comes from each board's default branch, so a gate living only on
+another branch is outside the reading. Which branches a ruleset reaches is no
+longer taken on its contexts alone for the thirteen, which are read above; the
+other twenty-two boards carrying a `required_status_checks` rule were not read
+for it, because no context any of them requires is the name its own gate
+produces.
