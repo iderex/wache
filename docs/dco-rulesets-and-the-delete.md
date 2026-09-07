@@ -9,8 +9,14 @@ September 2026 against the roster at `iderex/operations` `origin/main`
 The answer is that on eleven boards the delete takes a REQUIRED status check off
 the gate and puts nothing back, so every pull request there is left permanently
 pending rather than red - nothing merges and nothing says why. The shared gate's
-job carries the same name those eleven rulesets require, which is what makes the
-trap invisible to a board that checks the name.
+job carries the same name those rulesets require, which is what makes the trap
+invisible to a board that checks the name.
+
+THE SET IS THIRTEEN NOW AND THE `Re-read` SECTION AT THE END IS WHERE THAT IS
+RECORDED. Every figure between here and there is 4 September's and is left as it
+was taken. Two of the thirteen joined the set later the same evening, one of them
+two and a half minutes after this page was committed, so the count above is a
+reading with a date rather than a state of the fleet.
 
 ## The population
 
@@ -182,11 +188,117 @@ sixty-three by a comparison of bytes that cannot tell a source from a copy. So
 the migration sequence for this gate needs a ruleset step and does NOT need the
 pin-first step the hygiene sequence carries.
 
+## Re-read on 7 September 2026: the set is thirteen
+
+Taken against the roster at `iderex/operations` `origin/main`
+`c71f67ecfaa2fccdc78aacef1a1464017ba75dc2`, by the same two steps as above - the
+job each copy declares, then every ruleset on each of those boards:
+
+```
+$ wc -l < jobs.tsv
+63
+$ cut -f3 jobs.tsv | sort | uniq -c | sort -rn
+     61 DCO sign-off
+      1 dco
+      1 DCO sign-off on every commit
+$ awk -F'\t' '$4!=""' required.tsv | wc -l
+35
+$ awk -F'\t' '{n=split($4,a,"|"); for(i=1;i<=n;i++) if(a[i]==$2 || a[i]==$3) print $1"\t"a[i]}' required.tsv
+Flowfin/hub                                 DCO sign-off
+Flowfin/jellyfin-plugin-requests            DCO sign-off
+Flowfin/jellyfin-plugin-server-pairing      DCO sign-off
+Flowfin/jellyfin-plugin-share-links         DCO sign-off
+Flowfin/jellyfin-plugin-smart-collections   DCO sign-off
+Flowfin/jellyfin-plugin-sso                 DCO sign-off
+Flowfin/jellyfin-plugin-stats               DCO sign-off
+Flowfin/jellyfin-plugin-watchlist           DCO sign-off
+Flowfin/jellyfin-plugin-whisper-subtitles   DCO sign-off
+iderex/hoersaal                             DCO sign-off
+iderex/reissbrett                           DCO sign-off
+iderex/relais                               DCO sign-off
+iderex/stammtisch                           DCO sign-off
+```
+
+The population of copies has not moved: 63 files, the same three job names, 35
+of the 63 carrying a `required_status_checks` rule at all. What moved is two
+rulesets. `Flowfin/jellyfin-plugin-smart-collections` and
+`Flowfin/jellyfin-plugin-whisper-subtitles` require `DCO sign-off` now and did
+not on 4 September.
+
+**THE READING ABOVE WAS RIGHT WHEN IT WAS TAKEN AND STOPPED BEING RIGHT THE SAME
+EVENING.** A ruleset carries a version history, so this is dated rather than
+inferred:
+
+```
+$ git log --format='%h %ad %s' --date=iso-strict --diff-filter=A -1 origin/main -- docs/dco-rulesets-and-the-delete.md
+0c64f07 2026-09-04T19:42:52+02:00 Write down what deleting a local DCO gate costs a board [#25]
+$ gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770/history --jq '.[0,1] | "\(.version_id)\t\(.updated_at)"'
+48712320        2026-09-04T19:45:22.543+02:00
+47958657        2026-08-28T14:22:44.172+02:00
+$ gh api repos/Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770/history/47958657 --jq '[.state.rules[]? | select(.type=="required_status_checks") | .parameters.required_status_checks[]?.context] | join(",")'
+call / build,call / test,Reject Trojan Source Unicode,Audit workflows (zizmor)
+```
+
+Two minutes and thirty seconds. The version standing when this page was written
+required four contexts and none of them was `DCO sign-off`; the version that
+replaced it requires seventeen and one of them is. The second board is the same
+shape two hours and thirteen minutes later:
+
+```
+$ gh api repos/Flowfin/jellyfin-plugin-whisper-subtitles/rulesets/20467991/history --jq '.[0,1] | "\(.version_id)\t\(.updated_at)"'
+48723071        2026-09-04T21:55:53.227+02:00
+47958670        2026-08-28T14:22:52.191+02:00
+$ gh api repos/Flowfin/jellyfin-plugin-whisper-subtitles/rulesets/20467991/history/47958670 --jq '[.state.rules[]? | select(.type=="required_status_checks") | .parameters.required_status_checks[]?.context] | join(",")'
+call / build,call / test,Reject Trojan Source Unicode,Audit workflows (zizmor)
+```
+
+WHAT THAT SAYS IS NOT THAT THE READING WAS SLOPPY. This figure moves on a board
+that is not this one, by an edit that touches no file in any tree here, and
+nothing in this repository reads a ruleset outside a run somebody starts by
+hand. There is no interval on which a count of it stays true. That is why the
+sequence in `README.md` asks the migrating board to run the command on ITSELF,
+and why every number on this page carries the command beside it.
+
+Both new boards pass the two tests the eleven were held to. Their `dco.yml`
+declares the job name the ruleset requires, and nothing else in either workflow
+directory declares it:
+
+```
+$ awk -F'\t' '$1 ~ /smart-collections|whisper-subtitles/' jobs.tsv
+Flowfin/jellyfin-plugin-smart-collections       dco     DCO sign-off
+Flowfin/jellyfin-plugin-whisper-subtitles       dco     DCO sign-off
+$ for b in Flowfin/jellyfin-plugin-smart-collections Flowfin/jellyfin-plugin-whisper-subtitles; do
+    for f in $(gh api "repos/$b/contents/.github/workflows" --jq '.[].name'); do
+      [ "$f" = "dco.yml" ] && continue
+      gh api "repos/$b/contents/.github/workflows/$f" --jq '.content' | base64 -d |
+        grep -qE '^ +name: *"?DCO sign-off"? *$' && echo "$b $f"
+    done
+  done
+```
+
+No output, so on each of the thirteen `dco.yml` is still the only file declaring
+the required name, and the delete is the whole of the loss rather than a rename.
+
+BOTH OF THE TWO ARE ENFORCED, which the 4 September section declares it did not
+read for its eleven:
+
+```
+$ for r in Flowfin/jellyfin-plugin-smart-collections/rulesets/20465770 Flowfin/jellyfin-plugin-whisper-subtitles/rulesets/20467991; do
+    gh api "repos/$r" --jq '"\(.name)\t\(.enforcement)"'
+  done
+gate    active
+gate    active
+```
+
+That answers it for two of the thirteen and leaves the other eleven where the
+`## Not evaluated` line below puts them.
+
 ## Not evaluated
 
-Whether any of the eleven rulesets is enforced. I read the required contexts and
-not `enforcement`, so a ruleset in evaluate mode counts here the same as an
-active one.
+Whether the eleven rulesets of the 4 September reading are enforced. I read the
+required contexts and not `enforcement`, so a ruleset in evaluate mode counts
+there the same as an active one. The two boards the re-reading adds were read
+for it and both are `active`; the eleven were not re-read.
 
 Whether classic branch protection requires the same context anywhere. I read
 rulesets only, which is the same bound the hygiene reading declared for itself.
